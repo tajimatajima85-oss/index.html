@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seedance 2.0 — Cinematic Prompt Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --black: #0a0a0a;
+    --white: #f5f3ee;
+    --dim: #1a1a1a;
+    --panel: #111111;
+    --border: rgba(255,255,255,0.07);
+    --accent: #e8c46a;
+    --accent2: #c96b3f;
+    --accent3: #5a8fa3;
+    --text: #d0cdc4;
+    --muted: #6b6b6b;
+    --green: #4a7c59;
+    --green-light: #7ec893;
+    --red: #8b3a3a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--dim);
+  }
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--white);
+    letter-spacing: -0.5px;
+  }
+  .header-title span { color: var(--accent); }
+  .header-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 3px 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* ─── NAV TABS ─── */
+  .nav {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--dim);
+    padding: 0 32px;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .nav-tab {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.15s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ─── MAIN LAYOUT ─── */
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 106px);
+    overflow: hidden;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px 0;
+    background: var(--dim);
+  }
+  .sidebar-section {
+    padding: 0 16px;
+    margin-bottom: 24px;
+  }
+  .sidebar-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    padding: 0 4px;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.12s;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .sidebar-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .sidebar-item.active { background: rgba(232,196,106,0.08); color: var(--accent); }
+  .sidebar-item .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; flex-shrink: 0;
+  }
+
+  /* ─── CONTENT AREA ─── */
+  .content {
+    overflow-y: auto;
+    background: var(--black);
+  }
+
+  /* ─── SECTION PAGES ─── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ─── SHOT LIBRARY ─── */
+  .shot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+  .shot-card {
+    background: var(--black);
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .shot-card:hover { background: var(--dim); }
+  .shot-card.active { background: rgba(232,196,106,0.06); border-left: 2px solid var(--accent); }
+  .shot-type {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 6px;
+  }
+  .shot-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .shot-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .shot-syntax {
+    margin-top: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    background: rgba(90,143,163,0.08);
+    padding: 6px 10px;
+    border-left: 2px solid var(--accent3);
+  }
+
+  /* ─── PROMPT BUILDER ─── */
+  .builder-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 100%;
+  }
+  .builder-left {
+    padding: 24px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .builder-right {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .field-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  select, textarea, input[type=text] {
+    background: var(--dim);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  select:focus, textarea:focus, input:focus {
+    border-color: rgba(232,196,106,0.4);
+  }
+  select option { background: var(--dim); }
+  textarea { resize: vertical; min-height: 80px; }
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.12s;
+    color: var(--muted);
+    border-radius: 2px;
+    background: none;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { border-color: var(--accent); color: var(--accent); background: rgba(232,196,106,0.08); }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 11px 20px;
+    cursor: pointer;
+    border: none;
+    border-radius: 3px;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--black);
+  }
+  .btn-primary:hover { background: #f0d080; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+  /* ─── OUTPUT BOX ─── */
+  .output-box {
+    background: var(--dim);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+    padding: 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    flex: 1;
+    min-height: 200px;
+    position: relative;
+  }
+  .output-placeholder { color: var(--muted); font-style: italic; }
+  .output-en { color: var(--text); }
+  .output-zh { color: var(--accent3); }
+
+  .copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .copy-btn:hover { color: var(--text); }
+
+  /* ─── EXAMPLES PAGE ─── */
+  .examples-grid {
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 16px;
+  }
+  .example-card {
+    background: var(--dim);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .example-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .example-genre {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent2);
+  }
+  .example-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--white);
+    margin-top: 4px;
+  }
+  .example-body {
+    padding: 16px 18px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    white-space: pre-wrap;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .example-footer {
+    padding: 10px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    color: var(--muted);
+    background: rgba(255,255,255,0.04);
+  }
+  .tag.blue { color: var(--accent3); background: rgba(90,143,163,0.08); }
+  .tag.gold { color: var(--accent); background: rgba(232,196,106,0.08); }
+  .tag.red { color: #c96b6b; background: rgba(201,107,107,0.08); }
+
+  /* ─── AI BUILDER PAGE ─── */
+  .ai-page {
+    padding: 24px;
+    max-width: 760px;
+  }
+  .ai-step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .ai-step-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 2px;
+    margin-top: 2px;
+  }
+  .ai-step-body { flex: 1; }
+  .ai-step-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 10px;
+  }
+
+  /* ─── LOADING / STATUS ─── */
+  .status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+  }
+  .status.active { display: flex; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(232,196,106,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── DIRECTOR NOTE ─── */
+  .director-note {
+    margin-top: 12px;
+    background: rgba(201,107,63,0.06);
+    border: 1px solid rgba(201,107,63,0.2);
+    border-radius: 4px;
+    padding: 14px 16px;
+  }
+  .dn-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 8px;
+  }
+  .dn-body { font-size: 12px; line-height: 1.7; }
+  .dn-row { display: flex; gap: 10px; margin-bottom: 4px; }
+  .dn-key {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+  .dn-val { font-size: 12px; color: var(--text); }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  /* ─── SECTION TITLE ─── */
+  .section-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--white);
+  }
+  .section-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ─── DIVIDER ─── */
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+  /* ─── GUIDE PAGE ─── */
+  .guide-page { padding: 24px; max-width: 760px; }
+  .guide-block {
+    margin-bottom: 32px;
+  }
+  .guide-block-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .guide-block-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .guide-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .guide-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .guide-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .guide-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .mono { font-family: 'DM Mono', monospace; color: var(--accent3); font-size: 11px; }
+  .rule-tag {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 2px;
+    background: rgba(232,196,106,0.08);
+    color: var(--accent);
+    margin-left: 6px;
+  }
+
+  /* responsive: below 900px collapse to single column */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .builder-layout { grid-template-columns: 1fr; }
+    .examples-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">Seedance <span>2.0</span> Cinematic Prompt Engine</div>
+  </div>
+  <div class="header-badge">Hollywood Grade</div>
+</div>
+
+<nav class="nav">
+  <button class="nav-tab active" onclick="switchTab('builder')">AI Prompt Builder</button>
+  <button class="nav-tab" onclick="switchTab('examples')">Prompt Library</button>
+  <button class="nav-tab" onclick="switchTab('shots')">Shot Bible</button>
+  <button class="nav-tab" onclick="switchTab('guide')">Engine Rules</button>
+</nav>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Genre</div>
+      <div class="sidebar-item active" onclick="setSidebar(this,'genre','action')"><div class="dot"></div>Action / Combat</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','thriller')"><div class="dot"></div>Thriller / Crime</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','drama')"><div class="dot"></div>Drama</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','scifi')"><div class="dot"></div>Sci-Fi</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','horror')"><div class="dot"></div>Horror</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','romance')"><div class="dot"></div>Romance</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','western')"><div class="dot"></div>Western</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','anime')"><div class="dot"></div>Anime / Fantasy</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'genre','documentary')"><div class="dot"></div>Documentary</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Shot Style</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','establishing')"><div class="dot"></div>Establishing Wide</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','closeup')"><div class="dot"></div>Extreme Close-Up</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','pov')"><div class="dot"></div>POV / First Person</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','multishot')"><div class="dot"></div>Multi-Shot Cut</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','continuous')"><div class="dot"></div>Continuous Oner</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','frozen')"><div class="dot"></div>Frozen in Time</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','aerial')"><div class="dot"></div>Aerial / Drone</div>
+      <div class="sidebar-item" onclick="setSidebar(this,'shot','handheld')"><div class="dot"></div>Handheld Chaos</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ═══ AI BUILDER PAGE ═══ -->
+    <div class="page active" id="page-builder">
+      <div class="builder-layout">
+        <div class="builder-left">
+          <div class="section-header" style="padding:0 0 14px; border:none;">
+            <div>
+              <div class="section-title">Prompt Builder</div>
+              <div class="section-sub">AI-powered — generates production-ready Seedance 2.0 prompts</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="field-label">Movie Genre</div>
+            <select id="b-genre">
+              <option value="action">Action / Combat</option>
+              <option value="thriller">Thriller / Crime</option>
+              <option value="scifi">Sci-Fi / Cyberpunk</option>
+              <option value="drama">Drama</option>
+              <option value="horror">Horror / Psychological</option>
+              <option value="romance">Romance</option>
+              <option value="western">Western / Neo-Noir</option>
+              <option value="anime">Anime / Fantasy</option>
+              <option value="documentary">Documentary / Realist</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="field-label">Shot Type</div>
+            <select id="b-shot">
+              <option value="multi">Multi-Shot Cut (Smart Cuts ON)</option>
+              <option value="continuous">Continuous Oner (Single Take)</option>
+              <option value="pov">POV / First Person</option>
+              <option value="frozen">Frozen in Time / Speed Ramp</option>
+              <option value="aerial">Aerial / Drone</option>
+              <option value="handheld">Handheld Chaos</option>
+              <option value="static">Locked-Off Static</option>
+              <option value="tracking">Low-Angle Tracking</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="field-label">Scene Type</div>
+            <div class="chip-row" id="scene-chips">
+              <button class="chip active" onclick="toggleChip(this,'fight')">Fight / Duel</button>
+              <button class="chip" onclick="toggleChip(this,'pursuit')">Car Chase</button>
+              <button class="chip" onclick="toggleChip(this,'dialogue')">Confrontation</button>
+              <button class="chip" onclick="toggleChip(this,'reveal')">Big Reveal</button>
+              <button class="chip" onclick="toggleChip(this,'atmosphere')">Atmosphere</button>
+              <button class="chip" onclick="toggleChip(this,'infiltration')">Infiltration</button>
+              <button class="chip" onclick="toggleChip(this,'explosion')">Explosion</button>
+              <button class="chip" onclick="toggleChip(this,'hero')">Hero Moment</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="field-label">Visual Style / Grade</div>
+            <select id="b-grade">
+              <option value="film_noir">Film Noir — deep black, tungsten, high contrast</option>
+              <option value="blockbuster">Blockbuster — ARRI ALEXA, teal-orange grade</option>
+              <option value="neon_cyberpunk">Neon Cyberpunk — magenta/cyan, rain-slick streets</option>
+              <option value="golden_hour">Golden Hour — warm amber, long shadows, anamorphic</option>
+              <option value="cold_desaturated">Cold Thriller — desaturated, cool blue-grey</option>
+              <option value="gritty_realistic">Gritty Realism — documentary handheld, no grade</option>
+              <option value="dreamlike">Dreamlike — overexposed, lens flares, shallow DOF</option>
+              <option value="anime_painterly">Anime Painterly — cel-shaded, vibrant, ink lines</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="field-label">Scene Description <span style="color:var(--muted);font-style:italic">(be specific — characters, location, what happens)</span></div>
+            <textarea id="b-scene" rows="5" placeholder="e.g. A lone detective enters a rain-soaked Tokyo parking garage at 3am, flashlight cutting through smoke. A shadowy figure waits by a black SUV. The detective reaches for her weapon — but the figure is gone. Sound of heels on wet concrete behind her."></textarea>
+          </div>
+
+          <div>
+            <div class="field-label">Duration</div>
+            <div class="chip-row">
+              <button class="chip" onclick="setDur(this,'5s')">5s</button>
+              <button class="chip" onclick="setDur(this,'8s')">8s</button>
+              <button class="chip active" onclick="setDur(this,'10s')">10s</button>
+              <button class="chip" onclick="setDur(this,'15s')">15s (max)</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="field-label">Output Format</div>
+            <div class="chip-row">
+              <button class="chip active" onclick="setFmt(this,'full')">Full (EN + ZH)</button>
+              <button class="chip" onclick="setFmt(this,'en')">English Only</button>
+              <button class="chip" onclick="setFmt(this,'timeline')">Timeline Format</button>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="generatePrompt()" id="gen-btn">
+              ▶ Generate Prompt
+            </button>
+            <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+            <div class="status" id="gen-status">
+              <div class="spinner"></div>
+              <span id="status-text">Generating cinematic prompt...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="builder-right">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+            <div class="field-label" style="margin:0">Generated Prompt</div>
+            <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px;" onclick="copyOutput()">Copy EN</button>
+          </div>
+
+          <div class="output-box" id="output-en">
+            <span class="output-placeholder">Your English prompt will appear here...</span>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+            <div class="field-label" style="margin:0">Chinese Version (ZH) — paste directly into Seedance</div>
+            <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px;" onclick="copyZH()">Copy ZH</button>
+          </div>
+
+          <div class="output-box output-zh" id="output-zh" style="font-family:'DM Mono',monospace; min-height:120px;">
+            <span class="output-placeholder">中文版本将显示在这里...</span>
+          </div>
+
+          <div class="director-note" id="director-note" style="display:none;">
+            <div class="dn-label">Director's Note</div>
+            <div id="dn-content"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ EXAMPLES PAGE ═══ -->
+    <div class="page" id="page-examples">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Prompt Library</div>
+          <div class="section-sub">Production-ready examples across every genre and shot type</div>
+        </div>
+      </div>
+      <div class="examples-grid" id="examples-grid">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- ═══ SHOTS PAGE ═══ -->
+    <div class="page" id="page-shots">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Shot Bible</div>
+          <div class="section-sub">Every shot type, camera movement, and Seedance 2.0 native syntax</div>
+        </div>
+      </div>
+      <div class="shot-grid" id="shot-grid">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- ═══ GUIDE PAGE ═══ -->
+    <div class="page" id="page-guide">
+      <div class="guide-page">
+        <div class="section-header" style="padding:0 0 20px; border:none;">
+          <div>
+            <div class="section-title">Seedance 2.0 Engine Rules</div>
+            <div class="section-sub">Hard constraints, prompt architecture, and what the engine actually handles</div>
+          </div>
+        </div>
+
+        <div class="guide-block">
+          <div class="guide-block-title">Prompt Architecture</div>
+          <table class="guide-table">
+            <tr><th>Section</th><th>Purpose</th><th>Rule</th></tr>
+            <tr><td><span class="mono">VISUAL STYLE</span></td><td>Render quality, camera aesthetic, genre mood — one sentence</td><td>Never skip</td></tr>
+            <tr><td><span class="mono">CHARACTERS</span></td><td>Physical description — build, clothing with fabric, hair, props</td><td>No ages, no age markers</td></tr>
+            <tr><td><span class="mono">ENVIRONMENT</span></td><td>Location + time + atmosphere + active elements (rain, fire)</td><td>Environment = active participant</td></tr>
+            <tr><td><span class="mono">EMOTIONAL TARGET</span></td><td>Arc from first frame to last</td><td>One sentence</td></tr>
+            <tr><td><span class="mono">COLOR LOGIC</span></td><td>Grade name + palette</td><td>Specific grade names only</td></tr>
+            <tr><td><span class="mono">TIMELINE</span></td><td>Timestamped beats for action/multi-shot</td><td>00:00.0 format</td></tr>
+            <tr><td><span class="mono">SFX / AUDIO</span></td><td>Every specific sound + music or "No Music"</td><td>Always specify</td></tr>
+          </table>
+        </div>
+
+        <div class="guide-block">
+          <div class="guide-block-title">Camera Controls — Seedance Native Syntax</div>
+          <table class="guide-table">
+            <tr><th>Write This Exactly</th><th>Effect</th><th>Emotion</th></tr>
+            <tr><td><span class="mono">static camera</span> / <span class="mono">locked off</span></td><td>Zero movement</td><td>Authority, dread, indifference</td></tr>
+            <tr><td><span class="mono">handheld, subtle</span></td><td>Light organic sway</td><td>Intimacy, documentary truth</td></tr>
+            <tr><td><span class="mono">handheld with aggressive camera shake</span></td><td>Fight chaos</td><td>Danger, disorientation</td></tr>
+            <tr><td><span class="mono">slow dolly in</span></td><td>Tension build</td><td>Dread, fascination</td></tr>
+            <tr><td><span class="mono">fast dolly in</span></td><td>Rush toward subject</td><td>Urgency, shock</td></tr>
+            <tr><td><span class="mono">slow dolly out</span> / <span class="mono">pull back</span></td><td>Isolation reveal</td><td>Loss, endings, scale</td></tr>
+            <tr><td><span class="mono">low-angle tracking shot</span></td><td>Ground-level follow</td><td>Power, dominance, threat</td></tr>
+            <tr><td><span class="mono">side-profile tracking shot</span></td><td>Classic action side view</td><td>Momentum, speed</td></tr>
+            <tr><td><span class="mono">slow orbit left</span></td><td>360° wonder move</td><td>Awe, revelation</td></tr>
+            <tr><td><span class="mono">slow crane up</span></td><td>Rising transcendence</td><td>Victory, endings, scale</td></tr>
+            <tr><td><span class="mono">whip pan</span></td><td>Energy shift, time cut</td><td>Urgency, disorientation</td></tr>
+            <tr><td><span class="mono">speed ramping: real-time → slow-motion → real-time</span></td><td>Impact emphasis</td><td>Signature moments</td></tr>
+          </table>
+        </div>
+
+        <div class="guide-block">
+          <div class="guide-block-title">Hard Engine Constraints — Violating These Breaks Output</div>
+          <table class="guide-table">
+            <tr><th>Rule</th><th>Why It Matters</th></tr>
+            <tr><td>Never describe joint mechanics — use move name or intent</td><td>Engine ignores biomechanical detail; describes intent</td></tr>
+            <tr><td>Spatial continuity breaks on cuts — re-anchor positions</td><td>After any cut, state who is where and which direction they face</td></tr>
+            <tr><td>≤ 3 characters tracked across cuts</td><td>Engine loses tracking above 3</td></tr>
+            <tr><td>Exit-frame = implicit cut. No exit + re-entry in same shot</td><td>Character leaves frame → gone for remainder of that shot</td></tr>
+            <tr><td>Never describe reflections (blades, puddles, mirrors)</td><td>Seedance breaks scene geography on reflections</td></tr>
+            <tr><td>Only describe what can be seen or heard</td><td>"Air smells of pine" → "Pine needles on ground, wind in branches"</td></tr>
+            <tr><td>Double contrast on every cut (shot size AND camera type)</td><td>Single contrast cuts = invisible editing; engine ignores them</td></tr>
+            <tr><td>Every insert must be causally motivated, subject named</td><td>Generic inserts render wrong content</td></tr>
+          </table>
+        </div>
+
+        <div class="guide-block">
+          <div class="guide-block-title">The Antislop List — Never Use These Words</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+            <span class="tag red">breathtaking</span><span class="tag red">stunning</span><span class="tag red">captivating</span>
+            <span class="tag red">mesmerizing</span><span class="tag red">awe-inspiring</span><span class="tag red">masterfully</span>
+            <span class="tag red">meticulously</span><span class="tag red">exquisitely</span><span class="tag red">cinematic masterpiece</span>
+            <span class="tag red">visual feast</span><span class="tag red">seamlessly</span><span class="tag red">effortlessly</span>
+            <span class="tag red">flawlessly</span><span class="tag red">rich tapestry</span><span class="tag red">next-level</span>
+            <span class="tag red">groundbreaking</span><span class="tag red">a testament to</span><span class="tag red">resonates deeply</span>
+          </div>
+        </div>
+
+        <div class="guide-block">
+          <div class="guide-block-title">Credit Strategy — For 5-Minute Films</div>
+          <table class="guide-table">
+            <tr><th>Duration</th><th>Shots</th><th>Smart Cuts</th><th>Priority</th></tr>
+            <tr><td>3–5s</td><td>2–4</td><td>OFF</td><td>Single hero moments</td></tr>
+            <tr><td>5–10s</td><td>4–7</td><td>Optional</td><td>Scene sequences</td></tr>
+            <tr><td>10–15s</td><td>7–12</td><td>ON recommended</td><td>Full scenes</td></tr>
+            <tr><td>15s (max)</td><td>10–15</td><td>ON</td><td>Act sequences</td></tr>
+          </table>
+          <div style="margin-top:12px; font-size:12px; color:var(--muted); line-height:1.7;">
+            <strong style="color:var(--accent);">5-Minute Film Strategy:</strong> A 5-minute film at 10s avg per clip = ~30 clips. Generate your signature/hero shots first using fresh credits. Wide establishing shots are most forgiving — generate last. Build scene by scene, not chronologically.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const EXAMPLES = [
+  {
+    genre: "Action / Combat",
+    title: "Underground Fight Club",
+    shot: "Multi-Shot Cut",
+    tags: ["handheld","smart-cuts","impact"],
+    prompt: `VISUAL STYLE: Hyperrealistic underground fight footage, 16mm grain push, desaturated bone-white flesh tones, deep shadow crush, harsh sodium vapor overheads.
+
+CHARACTERS: Fighter A — compact build, shaved head, taped knuckles, blood-stained grey vest. Fighter B — taller, shaggy dark hair, mouth guard, green shorts with white stripe.
+
+ENVIRONMENT: Basement concrete ring, chain-link fence perimeter, crowd pressed against wire, single overhead cage light swinging, cigarette smoke pooling at knee height, wet concrete floor.
+
+EMOTIONAL TARGET: Attrition. The body failing before the will does.
+
+COLOR LOGIC: Bleach bypass partial — retain grain, strip saturation from skin, keep blood red.
+
+TIMELINE:
+00:00.0–00:01.5: HOOK — IMPACT ALREADY LANDING
+Fighter A's elbow connects with Fighter B's temple. Handheld with aggressive camera shake, medium close-up, real-time. Fighter B staggers left, hits chain-link. Crowd erupts.
+SFX: Bone impact, chain rattle, crowd roar spike. No Music.
+
+00:01.5–00:04.0: REVERSAL
+Low-angle static — Fighter B shakes head, spits mouth guard, charges. Side-profile tracking shot: running tackle drives A into fence post, metal buckling on contact.
+SFX: Metal impact, guttural exhale, crowd chanting.
+
+00:04.0–00:08.0: GROUND CONTROL
+Crane descent from ceiling: both fighters on the floor, A on top, working body shots in rhythm. Overhead locked-off. Each hit: speed ramp flash to slow-motion at point of contact, back to real-time.
+SFX: Dull thud rhythm, breathless crowd hush.
+
+00:08.0–00:10.0: MEANING-SHIFT PAYOFF
+ECU — Fighter A stops. Looks at his own hands. Blood — not his opponent's. Handheld subtly swaying. He doesn't know whose it is. Locked-off holds.
+SFX: Silence. Single drip on concrete.`
+  },
+  {
+    genre: "Sci-Fi / Cyberpunk",
+    title: "Neon Rain Chase",
+    shot: "Continuous Oner",
+    tags: ["continuous","neon","rain"],
+    prompt: `VISUAL STYLE: Blade Runner wet-street photography, f1.4 anamorphic lens flare, rain-on-glass bokeh, neon spectral bleed, 4K upscaled film emulation.
+
+CHARACTERS: Runner — synthetic-looking figure in black tactical gear, face partially obscured by reflective visor, moving fast. Pursuer — three identical security drones, matte black, blue scanning beams, silent movement.
+
+ENVIRONMENT: Rain-soaked Shibuya-style street at 2am, six stories of neon signage reflected in every surface, steam venting from grates, food stall awnings at street level, abandoned electric rickshaws.
+
+EMOTIONAL TARGET: Paranoia turned into pure kinetic survival.
+
+COLOR LOGIC: Teal-magenta neon grade — all shadows crushed to deep teal, all neon reflections bloom magenta and amber.
+
+CONTINUOUS ONER — NO CUTS:
+Slow dolly push from behind Runner at street level, rain falling through frame, neon signs blurring overhead. Runner accelerates without looking back — instinct, not reaction. Camera locks into low-angle side-profile tracking, matching speed. Drones enter frame from the right in tight triangle formation, silent except for a high-frequency hum the body feels before the ears register. Runner whip-turns into a service alley — camera swings with them on a slow orbit, revealing a dead end of stacked cargo crates. Runner doesn't stop. Runs at the wall. Uses first crate as a step, second as a launch, goes over. Camera cranes up the wall in a single vertical rise — drones arrive at the base of the wall, scanning beams crossing each other. Empty. The runner is gone.
+
+SFX: Rain constant, drone hum rising, wet boots on concrete, crate impact, silence after.`
+  },
+  {
+    genre: "Thriller / Crime",
+    title: "The Interrogation",
+    shot: "Locked-Off Static",
+    tags: ["static","dialogue","power"],
+    prompt: `VISUAL STYLE: Digital crime thriller, David Fincher color science — desaturated mid-tones, cold institutional grey-green, LED overhead strips, clinical and airless.
+
+CHARACTERS: Detective Voss — seated across metal table, immaculate white shirt, tie loosened, forearms on table, completely still. Suspect — cuffed to table ring, hoodie, eyes down, jaw muscles working.
+
+ENVIRONMENT: Police interrogation room, grey concrete walls, two-way mirror on left wall, single table, two chairs, one hanging LED fixture directly overhead. Coffee cup on table. Clock on wall showing 3:17am.
+
+EMOTIONAL TARGET: The slow extraction of a confession that costs more than silence would have.
+
+COLOR LOGIC: Fincher grey-green — kill all warmth, push shadows to dark grey-green, lift highlights to cold white.
+
+TIMELINE:
+00:00.0–00:02.5: LOCKED-OFF WIDE
+Both figures. Static camera, dead center. Suspect's hands visible and cuffed. Voss hasn't moved. Clock visible at 3:17am. Complete silence — 2.5 seconds of nothing.
+SFX: Clock ticking. HVAC hum. No Music.
+
+00:02.5–00:06.0: SLOW DOLLY IN — VOSS
+Camera inches toward Voss's face. He hasn't blinked. Over-the-shoulder of suspect. Voss places one index finger on the table between them — a single tap. Suspect's cuffed hands contract slightly.
+SFX: Finger tap on metal. Single sound.
+
+00:06.0–00:10.0: CUT TO SUSPECT — STATIC CLOSE
+Suspect's face. Locked-off. No movement in camera. Only the face moves — jaw, eyelids, a micro-swallow. The silence is physical weight.
+SFX: Clock. Breathing.
+
+00:10.0–END: MEANING-SHIFT
+ECU Voss's hand on the table. He slides a photograph face-down across the table. Static. Doesn't flip it. Waits. The photograph is the whole scene.
+SFX: Photo sliding on metal. Clock. Silence.`
+  },
+  {
+    genre: "Western / Neo-Noir",
+    title: "High Noon Standoff",
+    shot: "Multi-Shot Cut",
+    tags: ["western","duel","slow-motion"],
+    prompt: `VISUAL STYLE: Sergio Leone extreme — anamorphic 2.39:1, bone-dry heat shimmer, extreme telephoto compression, ECU eyes and hands alternating, Morricone-tempo editing.
+
+CHARACTERS: The Sheriff — weathered face, sweat-dark hat, badge catching noon sun, right hand loose at side. The Stranger — dusty long coat, hand-rolled cigarette, dark eyes, no badge.
+
+ENVIRONMENT: Unpaved main street, noon sun directly overhead, no shadows, storefronts empty, tumbleweed in the gutter, one loose shutter banging in wind, 200 yards of open dirt between them.
+
+EMOTIONAL TARGET: The 30 seconds before violence that feels like a year.
+
+COLOR LOGIC: Bleached amber-gold — overexposed highlights, deep orange shadows, anamorphic lens breathing.
+
+TIMELINE:
+00:00.0–00:02.0: TELEPHOTO COMPRESSION
+Extreme wide: both figures impossibly small in vast street, heat shimmer warping the air between them. Locked-off. No movement except shutter banging. 
+SFX: Wind. Shutter bang. Distant crow.
+
+00:02.0–00:05.0: ECU ALTERNATING — LEONE RHYTHM
+ECU The Sheriff's eyes under hat brim. Hard cut. ECU The Stranger's hand, three inches from holster. Hard cut. ECU The Sheriff's badge in sun. Hard cut. ECU The Stranger's cigarette burning down, one ash ready to fall.
+SFX: Each cut: silence. Wind between cuts.
+
+00:05.0–00:08.0: THE DRAW — SPEED RAMP
+Medium wide, static — both figures. Real-time 2 seconds. Then: speed ramp into extreme slow-motion as hands move. Dust rising from boots in slow-motion particles. Both draws happening simultaneously.
+SFX: Gunshot — then silence before the echo.
+
+00:08.0–END: MEANING-SHIFT
+ECU — The cigarette ash falls. Hits the dirt in slow-motion. Both men still standing. Neither is down yet. Locked-off holds.
+SFX: Cigarette ash landing. Nothing else.`
+  },
+  {
+    genre: "POV / Immersive",
+    title: "Night Jump POV",
+    shot: "POV / First Person",
+    tags: ["pov","action","fear"],
+    prompt: `VISUAL STYLE: GoPro-grade helmet cam, ultra-wide fisheye lens distortion, real-time, motion blur at edges, authentic light flare from city below, no grade — raw footage aesthetic.
+
+ENVIRONMENT: Rooftop edge of 40-story building at night, city below a carpet of orange and white light, wind audible and physical, rain starting, ledge is 18 inches wide.
+
+POV CONTINUOUS — SINGLE TAKE, NO CUTS:
+Camera (eye-level, first person) looks down over the edge — straight down, 40 floors, cars like moving dots. Hands appear at bottom of frame gripping the ledge lip — gloves, knuckle-white grip. Wind hits the camera physically, lens wobbles. The hands release the ledge. A half-second of absolute stillness — the body knows before the mind decides. Then free fall. Camera rotates slightly — the building face rushing upward past frame, lit windows streaking. Wind noise consuming everything. At 3 seconds of fall: speed ramp — city lights below stretch into vertical streaks as the fall accelerates into slow-motion subjective time. Then: snap to real-time as a parachute deploys — fabric explodes into frame, the fall arrests violently, city below swings wildly as orientation stabilizes. Floating. The city from above.
+
+SFX: Wind continuous, grip sound, half-second silence at the edge, rush of fall, parachute crack, wind shift to float. No Music.`
+  },
+  {
+    genre: "Drama",
+    title: "The Goodbye",
+    shot: "Continuous Oner",
+    tags: ["oner","drama","dialogue"],
+    prompt: `VISUAL STYLE: Arthouse drama — long lens 85mm, shallow DOF, natural window light only, handheld subtle, muted warm tones, no score no music, Dardenne Brothers visual language.
+
+CHARACTERS: A — standing at kitchen sink, back to room, hands in water. B — standing in doorway with a duffel bag, half in half out.
+
+ENVIRONMENT: Small apartment kitchen, late afternoon, golden light from window above sink, dishes drying on rack, one mug on table, coat hook by door with B's jacket still on it.
+
+EMOTIONAL TARGET: The conversation that ends before the words do.
+
+CONTINUOUS ONER — Handheld subtle, 85mm:
+Camera finds A at the sink. B in doorway — bag drops to the floor. Neither speaks. Camera is equidistant, 85mm compressing the space between them to almost nothing. A's hands stop moving in the sink water. B looks at the coat hook — their jacket still there from yesterday. A doesn't turn around. B picks up the bag. The camera holds on B picking up the jacket from the hook. Puts it in the bag. This is the line everything pivots on. Camera slowly, almost imperceptibly inches toward A's back. A's shoulders move — breathing. B crosses the kitchen — stops behind A. One hand on A's shoulder. A's eyes close. B removes the hand. Footsteps. Door opens. The sound of the outside world enters for exactly one second. Door closes. The outside is gone. Camera holds on A at the sink. Water still running.
+
+SFX: Water running continuous. Floor creak. Coat hook rattle. Door mechanism. One second of street sound. Door close. Water. Nothing else.`
+  },
+  {
+    genre: "Horror",
+    title: "The Long Hallway",
+    shot: "Frozen in Time / Speed Ramp",
+    tags: ["horror","frozen","dread"],
+    prompt: `VISUAL STYLE: Supernatural horror — Kubrick symmetry, very slow dolly, sterile fluorescent light, total silence broken by single sounds, no music, wide lens 24mm, everything in focus simultaneously creating nowhere to hide.
+
+CHARACTERS: Figure at far end of hallway — gender indeterminate, standing completely still, facing toward camera. Distance: approximately 80 meters.
+
+ENVIRONMENT: Hospital corridor at night, fluorescent strips overhead, some flickering, linoleum floor reflecting ceiling lights, room doors on both sides all closed, the figure standing at the exact vanishing point of the corridor.
+
+EMOTIONAL TARGET: The dread of something that doesn't move but gets closer.
+
+COLOR LOGIC: Overexposed fluorescent — greenish-white highlights, shadow details retained, no warmth anywhere.
+
+TIMELINE:
+00:00.0–00:04.0: THE LONG LOOK
+Camera locked-off. Wide angle. Figure visible in distance, motionless. We watch. Figure doesn't move. Fluorescent flickers once. Figure doesn't move. 
+SFX: Fluorescent hum. One distant door creak.
+
+00:04.0–00:07.0: DOLLY TOWARD
+Camera begins very slow dolly toward the figure. Figure still not moving. As camera moves forward, the space between camera and figure seems to not decrease — the corridor stretches.
+SFX: Fluorescent hum changing pitch. Linoleum under dolly.
+
+00:07.0–00:10.0: FROZEN IN TIME
+Speed ramp to 1% speed — frame almost stopped. Figure still stationary. Camera still dolly-ing forward in near-freeze. One flickering light tube caught in strobing slow-motion.
+SFX: Hum slowing to subsonic. Heartbeat.
+
+00:10.0–END: MEANING-SHIFT — SNAP
+Speed ramp back to real-time: figure is now 2 meters away. Camera never saw it move. Static hold. Figure's face in frame for the first time — eyes closed.
+SFX: Silence. One fluorescent ping.`
+  },
+  {
+    genre: "Anime / Fantasy",
+    title: "The Last Stand",
+    shot: "Multi-Shot Cut",
+    tags: ["anime","fantasy","meaning-shift"],
+    prompt: `Grand cinematic fantasy-anime style, sweeping painterly sky in deep crimson and violet, ink-line character edges, emotionally charged heroic staging. The warrior stands already mid-battle — the last enemy thrown back — cape shredded, glowing sword arm trembling, ground littered with fallen opponents. Camera opens on a wide low-angle shot: the warrior silhouetted against a collapsing fortress wall, debris falling in slow-motion around them, a single beam of red dusk light cutting through the dust. Hard cut to ECU: one eye beneath torn cloth wrapping, tears or sweat — indistinguishable. The warrior raises the sword. Camera in a slow orbit around them as the blade begins to glow — cyan light bleeding from the steel, wind pulling at the cape in dramatic billowing motion. Readable choreography: the warrior performs a final stance, weight shifting into precise tactical form, every fabric edge animated with force. Hard cut to extreme wide aerial: the fortress collapsing behind them as they walk away. And then — meaning-shift — the sword is sheathed. The warrior kneels. Not in defeat. Places the sword in the earth. Stands. Walks into the red light. The sword remains.
+SFX: Battle ambient fading, sword hum, wind, fabric, collapse debris, silence at the end. No Music.`
+  }
+];
+
+const SHOTS = [
+  { type: "Camera Movement", name: "Slow Dolly In", desc: "Camera inches toward subject over 3–8 seconds, creating mounting tension or dread.", syntax: "slow dolly in", emotion: "Tension / Fascination / Dread" },
+  { type: "Camera Movement", name: "Whip Pan", desc: "Violent fast horizontal pan — used for energy shifts, time cuts, following fast action.", syntax: "whip pan", emotion: "Urgency / Disorientation" },
+  { type: "Camera Movement", name: "Slow Crane Up", desc: "Camera rises vertically, revealing scale or transcendence. Best for endings.", syntax: "slow crane up", emotion: "Victory / Loss / Scale" },
+  { type: "Camera Movement", name: "Slow Orbit Left/Right", desc: "Camera circles the subject in 180°–360° arc. Best for product reveals, power moments.", syntax: "slow orbit left", emotion: "Awe / Power / Revelation" },
+  { type: "Camera Movement", name: "Pull Back / Dolly Out", desc: "Camera retreats from subject, revealing scale or isolation around them.", syntax: "slow dolly out", emotion: "Isolation / Endings / Loss" },
+  { type: "Camera Type", name: "Handheld — Subtle", desc: "Light organic sway, no stabilization. Documentary intimacy. Best for dialogue and reality.", syntax: "handheld, subtle", emotion: "Intimacy / Truth / Vulnerability" },
+  { type: "Camera Type", name: "Handheld — Aggressive Shake", desc: "Fight impact, chaos, panic. Camera itself is traumatized by the event.", syntax: "handheld with aggressive camera shake", emotion: "Danger / Chaos / Fear" },
+  { type: "Camera Type", name: "Locked Off / Static", desc: "Zero camera movement. The world acts — camera doesn't react. Most powerful choice in drama.", syntax: "static camera", emotion: "Authority / Dread / Indifference" },
+  { type: "Camera Type", name: "Low-Angle Tracking", desc: "Camera at knee-to-waist level, following action. Makes subjects powerful, threatening.", syntax: "low-angle tracking shot", emotion: "Power / Threat / Dominance" },
+  { type: "Camera Type", name: "Side-Profile Tracking", desc: "Camera tracks parallel to subject movement at same height. Classic action/chase view.", syntax: "side-profile tracking shot", emotion: "Speed / Momentum / Athleticism" },
+  { type: "Time Manipulation", name: "Freeze Frame", desc: "Action stops completely mid-motion. Single dramatic beat held.", syntax: "freeze frame", emotion: "Significance / Shock" },
+  { type: "Time Manipulation", name: "Speed Ramp", desc: "Transitions between real-time and slow-motion within a single shot. Signature moments.", syntax: "speed ramping: real-time → slow-motion → real-time", emotion: "Impact / Signature Moments" },
+  { type: "Time Manipulation", name: "Extreme Slow Motion", desc: "10–15% speed (~240fps equivalent). Every physical detail visible — water drops, impact debris.", syntax: "extreme slow-motion (approx. 240fps rendered at 24fps)", emotion: "Consequence / Beauty / Violence" },
+  { type: "Shot Scale", name: "Extreme Wide / Establishing", desc: "Subject tiny in environment. Reveals scale, isolation, world context.", syntax: "extreme wide establishing shot", emotion: "Scale / Loneliness / Context" },
+  { type: "Shot Scale", name: "Extreme Close-Up (ECU)", desc: "Single facial feature — eye, mouth, hand. Psychological weight, detail emphasis.", syntax: "extreme close-up", emotion: "Intensity / Meaning / Truth" },
+  { type: "Shot Scale", name: "OTS (Over the Shoulder)", desc: "Camera behind one character looking at another. Dialogue standby. Shows power relationship.", syntax: "over-the-shoulder of [CHARACTER]", emotion: "Perspective / Power / Intimacy" },
+  { type: "POV", name: "First Person POV", desc: "Camera = the character's eyes. Maximum immersion. Best with physical motion (running, fighting).", syntax: "first-person POV, eye-level, ultra-wide fisheye lens", emotion: "Immersion / Fear / Exhilaration" },
+  { type: "POV", name: "Dutch Angle", desc: "Camera tilted 15–30°. World is wrong, reality is unstable. Villain POV, horror, madness.", syntax: "dutch angle, camera tilted 25°", emotion: "Wrongness / Madness / Threat" },
+  { type: "Multi-Shot", name: "Smart Cuts ON", desc: "Multiple camera angles cut together automatically. Use for 8s+ video, dialogue, two-character scenes.", syntax: "Wide establishing shot transitioning to medium close-up, then cutting to extreme close-up", emotion: "Energy / Complexity / Film Grammar" },
+  { type: "Aerial", name: "Aerial / Drone Push", desc: "Camera descends from height toward subject. Reveals environment first, character second.", syntax: "aerial drone shot, slow descent from 200 feet, pushing toward [SUBJECT]", emotion: "Scale / Context / God-View" },
+  { type: "Transition", name: "Smash Cut / Hard Cut", desc: "Instantaneous cut with no transition. Maximum contrast between shots.", syntax: "hard cut to", emotion: "Shock / Urgency / Contrast" },
+  { type: "Transition", name: "Match Cut", desc: "Cut on matching shape or motion between two different scenes. Elegant, connects ideas.", syntax: "match cut from [A] to [B] on matching motion", emotion: "Connection / Elegance / Theme" }
+];
+
+let selectedGenre = 'action';
+let selectedDuration = '10s';
+let selectedFormat = 'full';
+let activeChips = new Set(['fight']);
+let generatedEN = '';
+let generatedZH = '';
+
+function switchTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+
+  if (tab === 'examples' && !document.getElementById('examples-grid').children.length) {
+    renderExamples();
+  }
+  if (tab === 'shots' && !document.getElementById('shot-grid').children.length) {
+    renderShots();
+  }
+}
+
+function setSidebar(el, type, val) {
+  const parent = el.parentElement;
+  parent.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  if (type === 'genre') {
+    selectedGenre = val;
+    document.getElementById('b-genre').value = val;
+  } else if (type === 'shot') {
+    const shotMap = {
+      establishing: 'multi', closeup: 'multi', pov: 'pov',
+      multishot: 'multi', continuous: 'continuous', frozen: 'frozen',
+      aerial: 'aerial', handheld: 'handheld'
+    };
+    document.getElementById('b-shot').value = shotMap[val] || 'multi';
+  }
+}
+
+function toggleChip(el, val) {
+  if (activeChips.has(val)) {
+    activeChips.delete(val);
+    el.classList.remove('active');
+  } else {
+    activeChips.add(val);
+    el.classList.add('active');
+  }
+}
+
+function setDur(el, val) {
+  document.querySelectorAll('#page-builder .chip-row:nth-of-type(1) .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  selectedDuration = val;
+}
+
+function setFmt(el, val) {
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  selectedFormat = val;
+}
+
+async function generatePrompt() {
+  const genre = document.getElementById('b-genre').value;
+  const shot = document.getElementById('b-shot').value;
+  const grade = document.getElementById('b-grade').value;
+  const scene = document.getElementById('b-scene').value;
+  const chips = [...activeChips].join(', ');
+
+  if (!scene.trim()) {
+    document.getElementById('output-en').innerHTML = '<span style="color:var(--accent2)">Please describe your scene first.</span>';
+    return;
+  }
+
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  document.getElementById('gen-status').classList.add('active');
+  document.getElementById('output-en').innerHTML = '<span class="output-placeholder">Generating...</span>';
+  document.getElementById('output-zh').innerHTML = '<span class="output-placeholder">生成中...</span>';
+  document.getElementById('director-note').style.display = 'none';
+
+  const shotDescriptions = {
+    multi: 'Multi-shot with Smart Cuts ON — multiple camera angles cut together automatically',
+    continuous: 'Continuous oner — single unbroken take, no cuts',
+    pov: 'First-person POV — camera IS the character\'s eyes',
+    frozen: 'Frozen in time / speed ramp — transitions between real-time and extreme slow-motion',
+    aerial: 'Aerial/drone shot — starts high, pushes toward subject',
+    handheld: 'Handheld with aggressive camera shake — kinetic, chaotic, danger',
+    static: 'Locked-off static camera — zero movement, maximum authority',
+    tracking: 'Low-angle tracking shot — ground-level follow, character powerful'
+  };
+
+  const gradeDescriptions = {
+    film_noir: 'Film Noir — deep black crush, tungsten 2700K amber, high contrast, no fill light',
+    blockbuster: 'Hollywood Blockbuster — ARRI ALEXA look, teal-orange grade, 2.39:1 anamorphic',
+    neon_cyberpunk: 'Neon Cyberpunk — magenta/cyan spectral bleed, rain-slick street reflections, 2am',
+    golden_hour: 'Golden Hour — warm amber 3200K, long shadows, anamorphic horizontal flares',
+    cold_desaturated: 'Cold Thriller — desaturated mid-tones, grey-green color science, LED overhead',
+    gritty_realistic: 'Gritty Realism — documentary handheld, no grade, 16mm push, available light only',
+    dreamlike: 'Dreamlike — overexposed highlights, lens breathing, shallow DOF, softened edges',
+    anime_painterly: 'Anime Painterly — cel-shaded, vibrant saturation, ink-line edges, painterly sky'
+  };
+
+  const systemPrompt = `You are a Seedance 2.0 prompt engineering expert. You write production-ready video prompts for the Seedance 2.0 AI video generator.
+
+CRITICAL RULES:
+1. Every prompt starts mid-action (hook rule — no setup)
+2. Use exact Seedance camera syntax: "slow dolly in", "handheld with aggressive camera shake", "locked off", "side-profile tracking shot", "speed ramping: real-time → slow-motion → real-time"
+3. Never describe age of characters
+4. Never use: breathtaking, stunning, captivating, mesmerizing, seamlessly, effortlessly, masterfully, cinematic masterpiece, visual feast
+5. Describe ONLY what can be seen or heard
+6. Environment must be an active participant — it reacts
+7. Always specify SFX and Music (or "No Music")
+8. Double contrast on every cut (shot size AND camera type must both change)
+9. Re-anchor positions after cuts
+10. No biomechanical joint descriptions — use move intent
+
+PROMPT STRUCTURE:
+VISUAL STYLE: [render quality + camera aesthetic + genre mood — one sentence]
+CHARACTERS: [precise physical description — no ages]
+ENVIRONMENT: [location + time + atmosphere + active elements]
+EMOTIONAL TARGET: [arc from first to last frame — one sentence]
+COLOR LOGIC: [grade name + palette description]
+TIMELINE:
+00:00.0–00:XX.X: [SECTION NAME — HOOK FIRST]
+[Action + camera + environment reaction]
+SFX: [specific sounds]. Music: [yes/no/description]
+[Continue timestamps...]
+MEANING-SHIFT PAYOFF: [final beat that reframes the entire video]
+
+After the English prompt, write a Chinese (ZH) version as a native Chinese cinematographer would write it — not a translation. Natural Chinese film grammar, four-character phrases. Mark it clearly as === CHINESE VERSION ===
+
+After both prompts, write a === DIRECTOR'S NOTE === section with:
+SIGNATURE MOMENT: [best shot to spend credits on]
+GENERATE FIRST: [which shot to produce first — why]
+WHAT TO WATCH FOR: [specific detail confirming success]
+IF IT FAILS: [one prompt fix]
+SEEDANCE TIP: [one practical tip]`;
+
+  const userPrompt = `Generate a complete Seedance 2.0 prompt for:
+GENRE: ${genre}
+SHOT TYPE: ${shotDescriptions[shot]}
+VISUAL GRADE: ${gradeDescriptions[grade]}
+SCENE TYPE: ${chips}
+DURATION: ${selectedDuration}
+FORMAT: ${selectedFormat}
+
+USER'S SCENE DESCRIPTION:
+${scene}
+
+Generate the complete prompt now. Start immediately with VISUAL STYLE: — no preamble.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+    const data = await response.json();
+    const fullText = data.content.map(b => b.text || '').join('');
+
+    const zhSplit = fullText.split('=== CHINESE VERSION ===');
+    const dnSplit = zhSplit.length > 1 ? zhSplit[1].split('=== DIRECTOR\'S NOTE ===') : ['', ''];
+
+    generatedEN = zhSplit[0].trim();
+    generatedZH = dnSplit[0] ? dnSplit[0].trim() : '';
+    const directorNote = dnSplit[1] ? dnSplit[1].trim() : '';
+
+    document.getElementById('output-en').textContent = generatedEN;
+    document.getElementById('output-zh').textContent = generatedZH || 'ZH version not generated — try Full format.';
+
+    if (directorNote) {
+      document.getElementById('director-note').style.display = 'block';
+      document.getElementById('dn-content').innerHTML = directorNote.split('\n').filter(l => l.trim()).map(l => {
+        const parts = l.split(':');
+        if (parts.length > 1) {
+          return `<div class="dn-row"><span class="dn-key">${parts[0]}:</span><span class="dn-val">${parts.slice(1).join(':').trim()}</span></div>`;
+        }
+        return `<div class="dn-val" style="margin-bottom:4px">${l}</div>`;
+      }).join('');
+    }
+
+  } catch (err) {
+    document.getElementById('output-en').innerHTML = `<span style="color:var(--accent2)">Error: ${err.message}</span>`;
+  }
+
+  btn.disabled = false;
+  document.getElementById('gen-status').classList.remove('active');
+}
+
+function clearAll() {
+  document.getElementById('b-scene').value = '';
+  document.getElementById('output-en').innerHTML = '<span class="output-placeholder">Your English prompt will appear here...</span>';
+  document.getElementById('output-zh').innerHTML = '<span class="output-placeholder">中文版本将显示在这里...</span>';
+  document.getElementById('director-note').style.display = 'none';
+  generatedEN = '';
+  generatedZH = '';
+}
+
+function copyOutput() {
+  if (generatedEN) {
+    navigator.clipboard.writeText(generatedEN);
+    showCopied('Copy EN');
+  }
+}
+function copyZH() {
+  if (generatedZH) {
+    navigator.clipboard.writeText(generatedZH);
+    showCopied('Copy ZH');
+  }
+}
+function showCopied(label) {
+  const btns = document.querySelectorAll('.btn-ghost');
+  btns.forEach(b => { if (b.textContent.includes(label.split(' ')[1])) { b.textContent = 'Copied!'; setTimeout(() => b.textContent = label, 1500); } });
+}
+
+function renderExamples() {
+  const grid = document.getElementById('examples-grid');
+  grid.innerHTML = EXAMPLES.map(e => `
+    <div class="example-card">
+      <div class="example-header">
+        <div>
+          <div class="example-genre">${e.genre}</div>
+          <div class="example-title">${e.title}</div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:right;line-height:1.4">${e.shot}</div>
+      </div>
+      <div class="example-body">${e.prompt}</div>
+      <div class="example-footer">
+        ${e.tags.map(t => `<span class="tag blue">${t}</span>`).join('')}
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:9px;padding:4px 10px" onclick="useExample(${EXAMPLES.indexOf(e)})">Use This →</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function useExample(idx) {
+  const e = EXAMPLES[idx];
+  document.getElementById('b-scene').value = e.prompt.substring(0, 400) + '...';
+  switchTab('builder');
+  document.querySelectorAll('.nav-tab')[0].click();
+}
+
+function renderShots() {
+  const grid = document.getElementById('shot-grid');
+  const types = [...new Set(SHOTS.map(s => s.type))];
+  grid.innerHTML = SHOTS.map(s => `
+    <div class="shot-card">
+      <div class="shot-type">${s.type}</div>
+      <div class="shot-name">${s.name}</div>
+      <div class="shot-desc">${s.desc}</div>
+      <div class="shot-syntax">${s.syntax}</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Emotion: ${s.emotion}</div>
+    </div>
+  `).join('');
+}
+
+renderExamples();
+renderShots();
+</script>
+</body>
+</html>
