@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seedance 2.0 — Cinematic Prompt Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+:root {
+  --black: #0a0a0a; --white: #f5f3ee; --dim: #141414; --panel: #111;
+  --border: rgba(255,255,255,0.07); --accent: #e8c46a; --accent2: #c96b3f;
+  --accent3: #5a8fa3; --text: #d0cdc4; --muted: #555;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--black); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; line-height: 1.6; min-height: 100vh; }
+.header { padding: 20px 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--dim); }
+.header-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--white); letter-spacing: -0.5px; }
+.header-title span { color: var(--accent); }
+.badge { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--accent); border: 1px solid var(--accent); padding: 3px 10px; letter-spacing: 1.5px; text-transform: uppercase; }
+.nav { display: flex; border-bottom: 1px solid var(--border); background: var(--dim); padding: 0 28px; gap: 4px; overflow-x: auto; }
+.nav-tab { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); padding: 11px 14px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.main { display: grid; grid-template-columns: 240px 1fr; height: calc(100vh - 98px); overflow: hidden; }
+.sidebar { border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 0; background: var(--dim); }
+.sb-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); padding: 0 16px; margin-bottom: 6px; margin-top: 16px; display: block; }
+.sb-label:first-child { margin-top: 0; }
+.sb-item { display: flex; align-items: center; gap: 8px; padding: 7px 16px; cursor: pointer; color: var(--muted); font-size: 12px; transition: all 0.12s; }
+.sb-item:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+.sb-item.active { background: rgba(232,196,106,0.07); color: var(--accent); }
+.sb-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.content { overflow-y: auto; background: var(--black); }
+.page { display: none; }
+.page.active { display: block; }
+/* BUILDER */
+.builder { display: grid; grid-template-columns: 1fr 1fr; height: 100%; }
+.bl { padding: 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.br { padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.fl { font-family: 'DM Mono', monospace; font-size: 9px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+select, textarea, input[type=text], input[type=password] {
+  background: var(--dim); border: 1px solid var(--border); color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 9px 12px;
+  border-radius: 3px; width: 100%; outline: none; transition: border-color 0.15s;
+}
+select:focus, textarea:focus, input:focus { border-color: rgba(232,196,106,0.35); }
+select option { background: #1a1a1a; }
+textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.5px; padding: 4px 10px; border: 1px solid var(--border); cursor: pointer; transition: all 0.12s; color: var(--muted); border-radius: 2px; background: none; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.active { border-color: var(--accent); color: var(--accent); background: rgba(232,196,106,0.07); }
+.btn { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; padding: 10px 18px; cursor: pointer; border: none; border-radius: 3px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 7px; }
+.btn-primary { background: var(--accent); color: var(--black); }
+.btn-primary:hover { background: #f0d080; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.18); }
+.out { background: var(--dim); border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Mono', monospace; font-size: 11px; line-height: 1.8; color: var(--text); padding: 14px; white-space: pre-wrap; word-break: break-word; flex: 1; min-height: 180px; overflow-y: auto; }
+.out-zh { color: var(--accent3); min-height: 100px; }
+.placeholder { color: var(--muted); font-style: italic; }
+.out-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.copy-btn { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); background: none; border: 1px solid var(--border); padding: 3px 8px; cursor: pointer; border-radius: 2px; }
+.copy-btn:hover { color: var(--text); }
+.dn { margin-top: 4px; background: rgba(201,107,63,0.05); border: 1px solid rgba(201,107,63,0.18); border-radius: 3px; padding: 12px 14px; display: none; }
+.dn-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent2); margin-bottom: 8px; }
+.dn-row { display: flex; gap: 8px; margin-bottom: 3px; font-size: 11px; }
+.dn-key { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent2); min-width: 130px; flex-shrink: 0; }
+.dn-val { color: var(--text); line-height: 1.5; }
+/* EXAMPLES */
+.eg-grid { padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+.eg-card { background: var(--dim); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+.eg-head { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.eg-genre { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent2); }
+.eg-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--white); margin-top: 3px; }
+.eg-body { padding: 14px 16px; font-size: 11px; line-height: 1.7; color: var(--text); font-family: 'DM Mono', monospace; white-space: pre-wrap; max-height: 260px; overflow-y: auto; }
+.eg-foot { padding: 8px 16px; border-top: 1px solid var(--border); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tag { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; padding: 2px 7px; border-radius: 2px; }
+.tag-blue { color: var(--accent3); background: rgba(90,143,163,0.08); }
+.tag-gold { color: var(--accent); background: rgba(232,196,106,0.08); }
+.tag-red { color: #c96b6b; background: rgba(201,107,107,0.08); }
+/* SHOT BIBLE */
+.shot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1px; background: var(--border); }
+.shot-card { background: var(--black); padding: 18px 20px; }
+.shot-type { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent2); margin-bottom: 5px; }
+.shot-name { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.shot-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.shot-syn { margin-top: 10px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent3); background: rgba(90,143,163,0.07); padding: 5px 9px; border-left: 2px solid var(--accent3); }
+.shot-emo { margin-top: 6px; font-size: 10px; color: var(--muted); }
+/* GUIDE */
+.guide { padding: 24px; max-width: 740px; }
+.g-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; margin-top: 28px; }
+.g-title:first-child { margin-top: 0; }
+.g-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text); vertical-align: top; }
+tr:hover td { background: rgba(255,255,255,0.015); }
+.mono { font-family: 'DM Mono', monospace; color: var(--accent3); font-size: 10px; }
+.antislop { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.slop-tag { font-size: 10px; font-family: 'DM Mono', monospace; padding: 2px 7px; border-radius: 2px; background: rgba(201,107,107,0.08); color: #c96b6b; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
+.section-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; color: var(--white); }
+.section-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.sec-head { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+@media (max-width: 860px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .builder { grid-template-columns: 1fr; }
+  .eg-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">Seedance <span>2.0</span> Cinematic Prompt Engine</div>
+  <div class="badge">No API Key Required</div>
+</div>
+
+<nav class="nav">
+  <button class="nav-tab active" onclick="switchTab('builder',this)">Prompt Builder</button>
+  <button class="nav-tab" onclick="switchTab('examples',this)">Prompt Library</button>
+  <button class="nav-tab" onclick="switchTab('shots',this)">Shot Bible</button>
+  <button class="nav-tab" onclick="switchTab('guide',this)">Engine Rules</button>
+</nav>
+
+<div class="main">
+  <div class="sidebar">
+    <span class="sb-label">Genre</span>
+    <div class="sb-item active" onclick="setSB(this,'genre','action')"><div class="sb-dot"></div>Action / Combat</div>
+    <div class="sb-item" onclick="setSB(this,'genre','thriller')"><div class="sb-dot"></div>Thriller / Crime</div>
+    <div class="sb-item" onclick="setSB(this,'genre','drama')"><div class="sb-dot"></div>Drama</div>
+    <div class="sb-item" onclick="setSB(this,'genre','scifi')"><div class="sb-dot"></div>Sci-Fi / Cyberpunk</div>
+    <div class="sb-item" onclick="setSB(this,'genre','horror')"><div class="sb-dot"></div>Horror</div>
+    <div class="sb-item" onclick="setSB(this,'genre','romance')"><div class="sb-dot"></div>Romance</div>
+    <div class="sb-item" onclick="setSB(this,'genre','western')"><div class="sb-dot"></div>Western / Neo-Noir</div>
+    <div class="sb-item" onclick="setSB(this,'genre','anime')"><div class="sb-dot"></div>Anime / Fantasy</div>
+    <span class="sb-label">Shot Style</span>
+    <div class="sb-item" onclick="setSB(this,'shot','multi')"><div class="sb-dot"></div>Multi-Shot Cut</div>
+    <div class="sb-item" onclick="setSB(this,'shot','continuous')"><div class="sb-dot"></div>Continuous Oner</div>
+    <div class="sb-item" onclick="setSB(this,'shot','pov')"><div class="sb-dot"></div>POV First Person</div>
+    <div class="sb-item" onclick="setSB(this,'shot','frozen')"><div class="sb-dot"></div>Frozen / Speed Ramp</div>
+    <div class="sb-item" onclick="setSB(this,'shot','aerial')"><div class="sb-dot"></div>Aerial / Drone</div>
+    <div class="sb-item" onclick="setSB(this,'shot','handheld')"><div class="sb-dot"></div>Handheld Chaos</div>
+    <div class="sb-item" onclick="setSB(this,'shot','static')"><div class="sb-dot"></div>Locked-Off Static</div>
+  </div>
+
+  <div class="content">
+
+    <!-- BUILDER -->
+    <div class="page active" id="page-builder">
+      <div class="builder">
+        <div class="bl">
+          <div>
+            <div class="section-title">Prompt Builder</div>
+            <div class="section-sub">Pilih parameter → klik Build Prompt → copy ke Seedance 2.0</div>
+          </div>
+
+          <div>
+            <div class="fl">Genre</div>
+            <select id="b-genre" onchange="syncSidebar('genre',this.value)">
+              <option value="action">Action / Combat</option>
+              <option value="thriller">Thriller / Crime</option>
+              <option value="scifi">Sci-Fi / Cyberpunk</option>
+              <option value="drama">Drama</option>
+              <option value="horror">Horror / Psychological</option>
+              <option value="romance">Romance</option>
+              <option value="western">Western / Neo-Noir</option>
+              <option value="anime">Anime / Fantasy</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="fl">Shot Type</div>
+            <select id="b-shot" onchange="syncSidebar('shot',this.value)">
+              <option value="multi">Multi-Shot Cut (Smart Cuts ON)</option>
+              <option value="continuous">Continuous Oner (Single Take)</option>
+              <option value="pov">POV / First Person</option>
+              <option value="frozen">Frozen in Time / Speed Ramp</option>
+              <option value="aerial">Aerial / Drone</option>
+              <option value="handheld">Handheld Chaos</option>
+              <option value="static">Locked-Off Static</option>
+              <option value="tracking">Low-Angle Tracking</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="fl">Scene Type</div>
+            <div class="chips" id="scene-chips">
+              <button class="chip active" onclick="toggleChip(this,'fight')">Fight / Duel</button>
+              <button class="chip" onclick="toggleChip(this,'chase')">Car Chase</button>
+              <button class="chip" onclick="toggleChip(this,'confrontation')">Confrontation</button>
+              <button class="chip" onclick="toggleChip(this,'reveal')">Big Reveal</button>
+              <button class="chip" onclick="toggleChip(this,'atmosphere')">Atmosphere</button>
+              <button class="chip" onclick="toggleChip(this,'infiltration')">Infiltration</button>
+              <button class="chip" onclick="toggleChip(this,'explosion')">Explosion</button>
+              <button class="chip" onclick="toggleChip(this,'hero')">Hero Moment</button>
+              <button class="chip" onclick="toggleChip(this,'dialogue')">Dialogue</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="fl">Visual Grade</div>
+            <select id="b-grade">
+              <option value="film_noir">Film Noir — deep black, tungsten, high contrast</option>
+              <option value="blockbuster">Blockbuster — ARRI ALEXA, teal-orange grade</option>
+              <option value="neon_cyberpunk">Neon Cyberpunk — magenta/cyan, rain-slick streets</option>
+              <option value="golden_hour">Golden Hour — warm amber, long shadows, anamorphic</option>
+              <option value="cold">Cold Thriller — desaturated, cool blue-grey, LED</option>
+              <option value="gritty">Gritty Realism — 16mm push, handheld, no grade</option>
+              <option value="dreamlike">Dreamlike — overexposed, lens flares, shallow DOF</option>
+              <option value="anime">Anime Painterly — cel-shaded, vibrant, ink-line edges</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="fl">Characters & Location <span style="color:var(--muted);font-style:italic;font-family:'DM Sans',sans-serif;text-transform:none;letter-spacing:0">(deskripsikan dengan spesifik)</span></div>
+            <textarea id="b-chars" rows="3" placeholder="Contoh: Seorang detektif wanita, rambut pendek, jaket kulit hitam. Lokasi: parkir bawah tanah Tokyo, 3 pagi, lampu neon merah."></textarea>
+          </div>
+
+          <div>
+            <div class="fl">Apa yang terjadi dalam scene ini?</div>
+            <textarea id="b-action" rows="3" placeholder="Contoh: Detektif masuk perlahan, flashlight menyapu ruangan. Sosok bayangan muncul di balik mobil. Detektif meraih senjata — sosok itu menghilang. Terdengar suara langkah di belakangnya."></textarea>
+          </div>
+
+          <div>
+            <div class="fl">Duration</div>
+            <div class="chips">
+              <button class="chip" onclick="setDur(this,'5s')">5s</button>
+              <button class="chip" onclick="setDur(this,'8s')">8s</button>
+              <button class="chip active" onclick="setDur(this,'10s')">10s</button>
+              <button class="chip" onclick="setDur(this,'15s')">15s (max)</button>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="btn btn-primary" onclick="buildPrompt()">▶ Build Prompt</button>
+            <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+          </div>
+        </div>
+
+        <div class="br">
+          <div class="out-row">
+            <div class="fl" style="margin:0">English Prompt — paste ke Seedance</div>
+            <button class="copy-btn" onclick="copyText('en')">Copy EN</button>
+          </div>
+          <div class="out" id="out-en"><span class="placeholder">Prompt bahasa Inggris akan muncul di sini...</span></div>
+
+          <div class="out-row">
+            <div class="fl" style="margin:0">Chinese Version (ZH) — alternatif paste ke Seedance</div>
+            <button class="copy-btn" onclick="copyText('zh')">Copy ZH</button>
+          </div>
+          <div class="out out-zh" id="out-zh"><span class="placeholder">版本中文将显示在这里...</span></div>
+
+          <div class="dn" id="dn">
+            <div class="dn-label">Director's Note</div>
+            <div id="dn-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXAMPLES -->
+    <div class="page" id="page-examples">
+      <div class="sec-head">
+        <div class="section-title">Prompt Library</div>
+        <div class="section-sub">8 contoh prompt production-ready — copy langsung ke Seedance 2.0</div>
+      </div>
+      <div class="eg-grid" id="eg-grid"></div>
+    </div>
+
+    <!-- SHOTS -->
+    <div class="page" id="page-shots">
+      <div class="sec-head">
+        <div class="section-title">Shot Bible</div>
+        <div class="section-sub">Semua shot type, camera movement, dan Seedance 2.0 native syntax</div>
+      </div>
+      <div class="shot-grid" id="shot-grid"></div>
+    </div>
+
+    <!-- GUIDE -->
+    <div class="page" id="page-guide">
+      <div class="guide">
+        <div class="g-title">Prompt Architecture</div>
+        <table>
+          <tr><th>Section</th><th>Fungsi</th><th>Rule</th></tr>
+          <tr><td><span class="mono">VISUAL STYLE</span></td><td>Render quality, camera aesthetic, genre mood</td><td>Jangan pernah skip</td></tr>
+          <tr><td><span class="mono">CHARACTERS</span></td><td>Deskripsi fisik — build, pakaian dengan texture, rambut, props</td><td>Jangan sebut umur</td></tr>
+          <tr><td><span class="mono">ENVIRONMENT</span></td><td>Lokasi + waktu + atmosphere + elemen aktif (hujan, api)</td><td>Environment = peserta aktif</td></tr>
+          <tr><td><span class="mono">EMOTIONAL TARGET</span></td><td>Arc dari frame pertama ke terakhir</td><td>Satu kalimat</td></tr>
+          <tr><td><span class="mono">COLOR LOGIC</span></td><td>Nama grade + deskripsi palette</td><td>Nama grade yang spesifik</td></tr>
+          <tr><td><span class="mono">TIMELINE</span></td><td>Timestamp beats untuk action/multi-shot</td><td>Format 00:00.0</td></tr>
+          <tr><td><span class="mono">SFX / AUDIO</span></td><td>Setiap suara spesifik + musik atau "No Music"</td><td>Selalu tentukan</td></tr>
+        </table>
+
+        <div class="g-title">Seedance Native Camera Syntax</div>
+        <table>
+          <tr><th>Tulis Persis Ini</th><th>Efek</th><th>Emosi</th></tr>
+          <tr><td><span class="mono">static camera</span> / <span class="mono">locked off</span></td><td>Zero movement</td><td>Otoritas, dread, masa bodoh</td></tr>
+          <tr><td><span class="mono">handheld, subtle</span></td><td>Sway organik ringan</td><td>Intimacy, kebenaran dokumenter</td></tr>
+          <tr><td><span class="mono">handheld with aggressive camera shake</span></td><td>Chaos pertarungan</td><td>Bahaya, disorientasi</td></tr>
+          <tr><td><span class="mono">slow dolly in</span></td><td>Build tension</td><td>Dread, fascinasi</td></tr>
+          <tr><td><span class="mono">fast dolly in</span></td><td>Rush toward subject</td><td>Urgensi, shock</td></tr>
+          <tr><td><span class="mono">slow dolly out</span> / <span class="mono">pull back</span></td><td>Isolasi reveal</td><td>Kehilangan, endings, scale</td></tr>
+          <tr><td><span class="mono">low-angle tracking shot</span></td><td>Ground-level follow</td><td>Power, dominan, ancaman</td></tr>
+          <tr><td><span class="mono">side-profile tracking shot</span></td><td>Classic action side view</td><td>Momentum, kecepatan</td></tr>
+          <tr><td><span class="mono">slow orbit left</span></td><td>360° wonder move</td><td>Kekaguman, revelasi</td></tr>
+          <tr><td><span class="mono">slow crane up</span></td><td>Rising transcendence</td><td>Kemenangan, endings</td></tr>
+          <tr><td><span class="mono">whip pan</span></td><td>Energy shift, time cut</td><td>Urgensi, disorientasi</td></tr>
+          <tr><td><span class="mono">speed ramping: real-time → slow-motion → real-time</span></td><td>Impact emphasis</td><td>Signature moments</td></tr>
+        </table>
+
+        <div class="g-title">Hard Engine Constraints</div>
+        <table>
+          <tr><th>Rule</th><th>Kenapa Penting</th></tr>
+          <tr><td>Jangan deskripsikan gerakan sendi — pakai nama move atau intent</td><td>Engine abaikan detail biomekanik</td></tr>
+          <tr><td>Re-anchor posisi setelah setiap cut</td><td>Spatial continuity putus pada cuts</td></tr>
+          <tr><td>Maks 3 karakter dilacak lintas cuts</td><td>Engine kehilangan tracking di atas 3</td></tr>
+          <tr><td>Karakter keluar frame = gone sampai shot berikutnya</td><td>Exit-frame = implicit cut</td></tr>
+          <tr><td>Jangan deskripsikan refleksi (pisau, genangan, cermin)</td><td>Seedance pecah scene geography pada refleksi</td></tr>
+          <tr><td>Hanya deskripsikan yang bisa dilihat atau didengar</td><td>"Bau pinus" → "Jarum pinus di tanah, angin di cabang"</td></tr>
+          <tr><td>Double contrast di setiap cut (ukuran shot DAN tipe kamera)</td><td>Single contrast cuts = editing tak terlihat</td></tr>
+        </table>
+
+        <div class="g-title">Antislop — Jangan Pernah Pakai Kata Ini</div>
+        <div class="antislop">
+          <span class="slop-tag">breathtaking</span><span class="slop-tag">stunning</span><span class="slop-tag">captivating</span>
+          <span class="slop-tag">mesmerizing</span><span class="slop-tag">awe-inspiring</span><span class="slop-tag">masterfully</span>
+          <span class="slop-tag">meticulously</span><span class="slop-tag">exquisitely</span><span class="slop-tag">cinematic masterpiece</span>
+          <span class="slop-tag">visual feast</span><span class="slop-tag">seamlessly</span><span class="slop-tag">effortlessly</span>
+          <span class="slop-tag">flawlessly</span><span class="slop-tag">rich tapestry</span><span class="slop-tag">groundbreaking</span>
+        </div>
+
+        <div class="g-title">Strategi 5-Menit Film</div>
+        <table>
+          <tr><th>Duration</th><th>Shots</th><th>Smart Cuts</th><th>Prioritas</th></tr>
+          <tr><td>3–5s</td><td>2–4</td><td>OFF</td><td>Single hero moments</td></tr>
+          <tr><td>5–10s</td><td>4–7</td><td>Optional</td><td>Scene sequences</td></tr>
+          <tr><td>10–15s</td><td>7–12</td><td>ON</td><td>Full scenes</td></tr>
+          <tr><td>15s (max)</td><td>10–15</td><td>ON</td><td>Act sequences</td></tr>
+        </table>
+        <p style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7">Film 5 menit @ 10s rata-rata = ~30 clips. Generate hero/signature shots dulu dengan fresh credits. Wide establishing shots paling toleran — generate terakhir. Bangun scene by scene, bukan secara kronologis.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const GRADES = {
+  film_noir: "Hyperrealistic film noir, 35mm grain push, deep black shadow crush, tungsten 2700K amber pools, harsh single-source practical lighting, high contrast, no fill light, anamorphic 2.39:1",
+  blockbuster: "Hollywood blockbuster, ARRI ALEXA digital cinema, teal-orange grade, anamorphic 2.39:1 with horizontal lens flares, deep focus, photochemical texture",
+  neon_cyberpunk: "Neon cyberpunk, rain-slick street reflections, magenta and cyan spectral bleed, deep shadow crush, 2am city light pollution, anamorphic bokeh streaks",
+  golden_hour: "Golden hour cinematic, warm amber 3200K, long horizontal shadows, anamorphic lens breathing, overexposed highlights, dust and haze in the air",
+  cold: "Cold thriller, David Fincher color science, desaturated mid-tones, grey-green LED institutional light, clinical and airless, digital precision",
+  gritty: "Gritty documentary realism, 16mm pushed two stops, handheld organic movement, available light only, no color grade, authentic texture",
+  dreamlike: "Dreamlike arthouse, overexposed highlights, lens flares, shallow DOF f1.2, soft edges, 85mm telephoto compression, haze and glow",
+  anime: "Grand cinematic fantasy-anime, cel-shaded painterly sky, vibrant saturated palette, ink-line character edges, emotionally charged heroic staging"
+};
+
+const SHOTS = {
+  multi: "Wide establishing shot transitioning to medium close-up, then cutting to extreme close-up — Smart Cuts ON",
+  continuous: "Continuous oner — single unbroken take, no cuts, camera moves fluidly through the space",
+  pov: "First-person POV, eye-level, ultra-wide fisheye lens, camera IS the character's eyes",
+  frozen: "Speed ramping: real-time → slow-motion → real-time on key impact moment",
+  aerial: "Aerial drone shot, slow descent from height, pushing toward subject",
+  handheld: "Handheld with aggressive camera shake, medium close-up, organic and chaotic",
+  static: "Static camera, locked off, zero movement — world acts, camera does not react",
+  tracking: "Low-angle tracking shot, ground-level follow, side-profile, subject dominant in frame"
+};
+
+const GENRE_MOOD = {
+  action: "High-octane athletic realism, sweat and impact, kinetic energy",
+  thriller: "Paranoia and dread, information asymmetry, cold institutional atmosphere",
+  scifi: "Synthetic futures, technology as threat and promise, alienation",
+  drama: "Human truth, emotional weight, silence as language",
+  horror: "Dread before the event, the unknown staying unknown, wrongness",
+  romance: "Warmth and vulnerability, the moment before contact, longing",
+  western: "Moral ambiguity, landscape as character, inevitable violence",
+  anime: "Emotionally charged heroic staging, readable choreography, meaning-shift endings"
+};
+
+const SCENE_HOOKS = {
+  fight: "Camera opens already mid-impact — a blow is landing right now",
+  chase: "Vehicle already at speed — engine screaming, pursuing car closing fast",
+  confrontation: "Both figures already facing each other — tension already at breaking point",
+  reveal: "Camera already mid-reveal — the hidden thing is becoming visible right now",
+  atmosphere: "Environmental detail already in motion — rain falling, smoke drifting, light shifting",
+  infiltration: "Figure already inside — past the perimeter, moving through shadows",
+  explosion: "Shockwave already expanding — debris in the air, fire already consuming",
+  hero: "Hero already in the decisive moment — the action is already committed",
+  dialogue: "Exchange already underway — the line that changes everything is being delivered"
+};
+
+const ZH_GRADES = {
+  film_noir: "超写实黑色电影风格，35mm胶片推高两挡，深邃黑色阴影压缩，钨丝灯2700K琥珀光晕，强硬单光源实景照明，高对比度，无补光，2.39:1变形镜头",
+  blockbuster: "好莱坞商业大片，ARRI ALEXA数字电影，青橙色调，2.39:1变形镜头横向耀斑，深焦，光化学质感",
+  neon_cyberpunk: "霓虹赛博朋克，雨湿街道反光，品红与青色光谱渗色，深黑阴影压缩，凌晨两点城市光污染，变形镜头散景条纹",
+  golden_hour: "黄金时刻电影感，暖琥珀3200K，长水平阴影，变形镜头呼吸感，过曝高光，空气中的尘埃与雾霾",
+  cold: "冷峻惊悚，大卫芬奇色彩科学，去饱和中间调，灰绿色LED机构照明，临床冷漠，数字精准",
+  gritty: "粗粝纪录片写实主义，16mm推高两挡，手持有机运动，仅用现场光，无调色，真实质感",
+  dreamlike: "梦幻艺术电影，过曝高光，镜头耀斑，f1.2浅景深，柔化边缘，85mm长焦压缩，光晕与雾气",
+  anime: "宏大电影奇幻动漫风格，手绘天空，高饱和调色，墨线角色边缘，情感强烈的英雄构图"
+};
+
+let activeChips = new Set(['fight']);
+let dur = '10s';
+let genEN = '', genZH = '';
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'examples' && !document.getElementById('eg-grid').children.length) renderExamples();
+  if (tab === 'shots' && !document.getElementById('shot-grid').children.length) renderShots();
+}
+
+function setSB(el, type, val) {
+  el.parentElement.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  if (type === 'genre') document.getElementById('b-genre').value = val;
+  else if (type === 'shot') document.getElementById('b-shot').value = val;
+}
+
+function syncSidebar(type, val) {
+  const items = document.querySelectorAll('.sb-item');
+  items.forEach(item => {
+    const onclick = item.getAttribute('onclick') || '';
+    if (onclick.includes("'" + type + "'") && onclick.includes("'" + val + "'")) {
+      item.parentElement.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    }
+  });
+}
+
+function toggleChip(el, val) {
+  if (activeChips.has(val)) { activeChips.delete(val); el.classList.remove('active'); }
+  else { activeChips.add(val); el.classList.add('active'); }
+}
+
+function setDur(el, val) {
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  dur = val;
+}
+
+function buildPrompt() {
+  const genre = document.getElementById('b-genre').value;
+  const shot = document.getElementById('b-shot').value;
+  const grade = document.getElementById('b-grade').value;
+  const chars = document.getElementById('b-chars').value.trim();
+  const action = document.getElementById('b-action').value.trim();
+  const sceneTypes = [...activeChips];
+
+  if (!chars && !action) {
+    document.getElementById('out-en').innerHTML = '<span style="color:var(--accent2)">⚠️ Isi dulu karakter/lokasi dan deskripsi scene.</span>';
+    return;
+  }
+
+  const hook = sceneTypes.length > 0 ? SCENE_HOOKS[sceneTypes[0]] : SCENE_HOOKS['atmosphere'];
+  const gradeStr = GRADES[grade];
+  const shotStr = SHOTS[shot];
+  const mood = GENRE_MOOD[genre];
+  const durNum = parseInt(dur);
+
+  // Build timeline blocks
+  const t1end = Math.round(durNum * 0.2 * 10) / 10;
+  const t2end = Math.round(durNum * 0.55 * 10) / 10;
+  const t3end = durNum;
+
+  const sceneDesc = action || 'Scene unfolds with mounting tension.';
+  const charsDesc = chars || 'Figure in dark tactical clothing, details obscured by shadow.';
+
+  const envLines = extractEnv(chars);
+  const charLines = extractChar(chars);
+
+  const en = `VISUAL STYLE: ${gradeStr}. ${mood}.
+
+CHARACTERS: ${charLines || charsDesc}
+
+ENVIRONMENT: ${envLines || 'Location as described. Atmosphere active and reactive.'}
+
+EMOTIONAL TARGET: ${getEmotionalTarget(genre, sceneTypes)}.
+
+COLOR LOGIC: ${getColorLogic(grade)}.
+
+TIMELINE:
+00:00.0–00:0${t1end.toFixed(1)}: HOOK — ${hook.toUpperCase()}
+${getShotCamera(shot, 'hook')}. ${sceneDesc.split('.')[0]}.
+SFX: ${getSFX(sceneTypes, 'hook')}. ${getMusic(genre)}.
+
+00:0${t1end.toFixed(1)}–00:${t2end < 10 ? '0' + t2end.toFixed(1) : t2end.toFixed(1)}: ESCALATION
+${getShotCamera(shot, 'mid')}. ${sceneDesc}.
+SFX: ${getSFX(sceneTypes, 'mid')}.
+
+00:${t2end < 10 ? '0' + t2end.toFixed(1) : t2end.toFixed(1)}–00:${t3end < 10 ? '0' + t3end.toFixed(1) : t3end.toFixed(1)}: MEANING-SHIFT PAYOFF
+${getShotCamera(shot, 'end')}. ${getMeaningShift(genre, sceneTypes)}.
+SFX: ${getSFX(sceneTypes, 'end')}.`;
+
+  const zhGrade = ZH_GRADES[grade];
+  const zh = `视觉风格：${zhGrade}。${getZHMood(genre)}。
+
+人物：${charLines || charsDesc}
+
+环境：${envLines || '场景如描述。氛围活跃且具有反应性。'}
+
+情感目标：${getZHEmotionalTarget(genre, sceneTypes)}。
+
+色彩逻辑：${getZHColorLogic(grade)}。
+
+时间轴：
+00:00.0–00:0${t1end.toFixed(1)}：钩子 — ${getZHHook(sceneTypes)}
+${getZHShotCamera(shot, 'hook')}。${sceneDesc.split('.')[0]}。
+音效：${getZHSFX(sceneTypes, 'hook')}。${getZHMusic(genre)}。
+
+00:0${t1end.toFixed(1)}–00:${t2end < 10 ? '0' + t2end.toFixed(1) : t2end.toFixed(1)}：升级
+${getZHShotCamera(shot, 'mid')}。${sceneDesc}。
+音效：${getZHSFX(sceneTypes, 'mid')}。
+
+00:${t2end < 10 ? '0' + t2end.toFixed(1) : t2end.toFixed(1)}–00:${t3end < 10 ? '0' + t3end.toFixed(1) : t3end.toFixed(1)}：意义转折收尾
+${getZHShotCamera(shot, 'end')}。${getZHMeaningShift(genre, sceneTypes)}。
+音效：${getZHSFX(sceneTypes, 'end')}。`;
+
+  genEN = en;
+  genZH = zh;
+  document.getElementById('out-en').textContent = en;
+  document.getElementById('out-zh').textContent = zh;
+
+  // Director's note
+  const dn = document.getElementById('dn');
+  dn.style.display = 'block';
+  document.getElementById('dn-body').innerHTML = `
+    <div class="dn-row"><span class="dn-key">SIGNATURE MOMENT:</span><span class="dn-val">${getSignature(shot, sceneTypes)}</span></div>
+    <div class="dn-row"><span class="dn-key">GENERATE FIRST:</span><span class="dn-val">Hook shot (00:00.0–${t1end.toFixed(1)}s) — ini yang menentukan tone seluruh clip</span></div>
+    <div class="dn-row"><span class="dn-key">WATCH FOR:</span><span class="dn-val">${getWatchFor(shot, grade)}</span></div>
+    <div class="dn-row"><span class="dn-key">IF IT FAILS:</span><span class="dn-val">Tambahkan lebih banyak detail fisik spesifik pada karakter — pakaian, tekstur, posisi tubuh</span></div>
+    <div class="dn-row"><span class="dn-key">SEEDANCE TIP:</span><span class="dn-val">${getSeedanceTip(shot)}</span></div>
+  `;
+}
+
+function extractChar(text) {
+  if (!text) return '';
+  const lines = text.split(/[.,\n]/);
+  return lines[0] ? lines[0].trim() : text.substring(0, 100);
+}
+
+function extractEnv(text) {
+  if (!text) return '';
+  const parts = text.split(/lokasi:|location:|di |at /i);
+  return parts.length > 1 ? parts[1].trim() : '';
+}
+
+function getEmotionalTarget(genre, scenes) {
+  const map = {
+    action: 'Escalating physical dominance — body pushed past its limit, will refusing to break',
+    thriller: 'Information asymmetry turning to dread — someone knows something the other doesn\'t',
+    drama: 'The unsaid thing between two people becoming the only thing in the room',
+    scifi: 'Technology as both salvation and trap — the choice between them',
+    horror: 'The dread of something wrong that stays wrong, never resolving',
+    romance: 'The moment before contact — everything said without words',
+    western: 'Moral weight of the inevitable — no good options left',
+    anime: 'From desperation through sacrifice to transcendence'
+  };
+  return map[document.getElementById('b-genre').value] || 'Tension building to a decisive, irreversible moment';
+}
+
+function getColorLogic(grade) {
+  const map = {
+    film_noir: 'Bleach bypass partial — retain grain, strip skin saturation, keep blood red, amber practical lights',
+    blockbuster: 'Teal-orange — shadows pushed teal, skin tones orange, highlights near-white',
+    neon_cyberpunk: 'Teal-magenta neon — all shadows crushed to deep teal, neon reflections bloom magenta and amber',
+    golden_hour: 'Bleached amber-gold — overexposed highlights, deep orange shadows, anamorphic breathing',
+    cold: 'Fincher grey-green — kill all warmth, push shadows dark grey-green, lift highlights to cold white',
+    gritty: 'No grade — raw film stock, whatever light was there, authentic imperfection',
+    dreamlike: 'Washed highlights — lift blacks slightly, desaturate midtones, keep skin warmth',
+    anime: 'Vibrant saturated — pure hues, no desaturation, cel-shading separates light from shadow hard'
+  };
+  return map[grade] || 'Cinematic grade appropriate to tone';
+}
+
+function getShotCamera(shot, phase) {
+  const cams = {
+    multi: { hook: 'Chaotic handheld medium shot', mid: 'Hard cut to low-angle close-up, stabilized tracking', end: 'Cut to extreme wide, locked-off static' },
+    continuous: { hook: 'Slow dolly push from behind, camera follows', mid: 'Camera locks into side-profile tracking', end: 'Slow crane up revealing full environment' },
+    pov: { hook: 'First-person POV, ultra-wide fisheye, eye-level', mid: 'POV continues, body enters frame at bottom', end: 'POV holds, static locked on final image' },
+    frozen: { hook: 'Real-time medium shot opening', mid: 'Speed ramp into extreme slow-motion on impact', end: 'Speed ramp back to real-time, static hold' },
+    aerial: { hook: 'Aerial drone high above, locked', mid: 'Slow descent pushing toward subject below', end: 'Ground level arrival, low-angle static' },
+    handheld: { hook: 'Handheld with aggressive camera shake, medium close-up', mid: 'Handheld chaos, whip-pan to new angle', end: 'Sudden static lock — stillness after chaos' },
+    static: { hook: 'Locked-off wide, zero movement, both figures visible', mid: 'Locked-off medium, camera does not react', end: 'Locked-off extreme close-up, holds' },
+    tracking: { hook: 'Low-angle tracking shot, ground level, subject dominant', mid: 'Side-profile tracking, speed maintained', end: 'Tracking stops, slow dolly out to wide' }
+  };
+  return (cams[shot] || cams['multi'])[phase];
+}
+
+function getSFX(scenes, phase) {
+  const s = [...scenes][0] || 'atmosphere';
+  const map = {
+    fight: { hook: 'Impact sound, crowd gasp', mid: 'Bone hits, guttural exhale, fabric tear', end: 'Silence, single drop on floor' },
+    chase: { hook: 'Engine scream, tires on asphalt', mid: 'Metal scraping, horn blare, crash', end: 'Engine fading, silence' },
+    confrontation: { hook: 'Door slam, footsteps stop', mid: 'Voice tense, chair scrape', end: 'Silence. Clock tick.' },
+    reveal: { hook: 'Door creak, breath hold', mid: 'Ambient swell, wind', end: 'Silence after reveal' },
+    atmosphere: { hook: 'Rain on surface, distant traffic', mid: 'Wind, structural creak', end: 'Single sound, then silence' },
+    infiltration: { hook: 'Soft footsteps, breath control', mid: 'Lock click, hinge whisper', end: 'Heartbeat, silence' },
+    explosion: { hook: 'Rumble building, glass vibrating', mid: 'Detonation, shockwave, debris rain', end: 'Ringing silence, fire' },
+    hero: { hook: 'Music swell, wind', mid: 'Impact, crowd react', end: 'Silence, single note' },
+    dialogue: { hook: 'Room tone, chair movement', mid: 'Voice, pause, breath', end: 'Long silence. Door.' }
+  };
+  return (map[s] || map['atmosphere'])[phase];
+}
+
+function getMusic(genre) {
+  const map = {
+    action: 'No Music — let impact sounds carry', thriller: 'No Music', drama: 'No Music',
+    horror: 'No Music', scifi: 'Music: low subsonic hum, building', romance: 'Music: sparse piano, single note',
+    western: 'No Music', anime: 'Music: orchestral swell, brass'
+  };
+  return map[genre] || 'No Music';
+}
+
+function getMeaningShift(genre, scenes) {
+  const map = {
+    action: 'Winner stops. Looks at their own hands. The victory costs something unnamed',
+    thriller: 'The reveal: the threat was already inside. Locked-off holds on the realization',
+    drama: 'The unsaid thing is finally said — or finally isn\'t. Silence answers',
+    scifi: 'The machine and the human share the same expression. Static hold',
+    horror: 'It doesn\'t attack. It just watches. Eyes closed. Then opens them',
+    romance: 'They don\'t touch. The almost-touch is everything. Camera holds',
+    western: 'Nobody wins. Both still standing. The cigarette ash falls',
+    anime: 'The weapon is sheathed and placed in the earth. The warrior walks away'
+  };
+  return map[genre] || 'The final beat reframes everything that came before it. Static hold.';
+}
+
+function getSignature(shot, scenes) {
+  const s = [...scenes][0] || 'atmosphere';
+  if (shot === 'frozen') return 'The speed ramp moment — where time stretches to impossibility';
+  if (shot === 'pov') return 'The POV hook — first 2 seconds before the audience knows what\'s happening';
+  if (s === 'fight') return 'The impact ECU — bone on bone in extreme close-up';
+  if (s === 'reveal') return 'The reveal crane shot — camera movement as the reveal itself';
+  return 'The meaning-shift ending — the final beat that reframes everything';
+}
+
+function getWatchFor(shot, grade) {
+  if (shot === 'handheld') return 'Camera shake matching the physical impact — if shake is generic, prompt needs more specific impact description';
+  if (grade === 'neon_cyberpunk') return 'Neon bleed in wet surfaces — magenta and cyan appearing in reflections';
+  if (grade === 'film_noir') return 'Shadow crush — deep blacks with no detail, single light source visible';
+  return 'Color grade appearing in the first frame — confirms Seedance read the visual style correctly';
+}
+
+function getSeedanceTip(shot) {
+  const tips = {
+    multi: 'Untuk Smart Cuts yang baik: deskripsikan setiap cut sebagai kalimat terpisah dengan kontras shot size dan camera type',
+    continuous: 'Oner terbaik dimulai dari belakang subjek — beri camera trajectory yang jelas dari awal ke akhir',
+    pov: 'POV paling efektif dengan fisheye lens — tambahkan body parts di bawah frame (tangan, bahu) untuk ground the viewer',
+    frozen: 'Speed ramp: tulis real-time dulu, lalu trigger slow-mo tepat pada momen impact, lalu balik ke real-time',
+    aerial: 'Aerial descent: mulai dari ketinggian yang sangat tinggi agar scale reveal maksimal',
+    handheld: 'Aggressive shake: spesifikkan siapa yang memegang kamera — photographer, bystander, atau attached to subject',
+    static: 'Static shot paling kuat saat semua orang lain bergerak — kontrasnya yang menciptakan weight',
+    tracking: 'Low-angle tracking: spesifikkan ketinggian (knee level, ankle level) untuk efek power yang berbeda'
+  };
+  return tips[shot] || 'Generate signature shot pertama dengan fresh credits. Wide shots paling toleran — generate terakhir.';
+}
+
+// ZH helpers
+function getZHMood(g) {
+  const m = { action:'高燃运动写实主义，汗水与冲击，动能爆发', thriller:'偏执与恐惧，信息不对称，冷峻机构氛围', scifi:'合成未来，技术即威胁与承诺，疏离感', drama:'人性真实，情感分量，沉默即语言', horror:'事件前的恐惧，未知保持未知，错误感', romance:'温暖与脆弱，接触前的瞬间，渴望', western:'道德模糊，景观即角色，必然的暴力', anime:'情感强烈的英雄构图，清晰的打斗编排，意义转折结局' };
+  return m[document.getElementById('b-genre').value] || '紧张感积累至决定性、不可逆的时刻';
+}
+function getZHEmotionalTarget(g, s) {
+  const m = { action:'不断升级的身体主导——身体被推至极限，意志拒绝崩溃', thriller:'信息不对称转化为恐惧——某人知道另一人不知道的事', drama:'两人之间未说出的话变成房间里唯一存在的事', scifi:'技术既是救赎又是陷阱——在两者之间做出选择', horror:'某种错误的恐惧持续错误，从不解决', romance:'接触前的瞬间——一切无言而说', western:'不可避免之事的道德重量——没有好的选择', anime:'从绝望经由牺牲到超越' };
+  return m[document.getElementById('b-genre').value] || '紧张感积累至决定性、不可逆的时刻';
+}
+function getZHColorLogic(g) {
+  const m = { film_noir:'漂白旁路局部处理——保留颗粒感，剥离肤色饱和度，保留血红色，琥珀实景光', blockbuster:'青橙色调——阴影推向青色，肤色橙色，高光接近纯白', neon_cyberpunk:'青色-品红霓虹——所有阴影压缩至深青色，霓虹反射绽放品红与琥珀色', golden_hour:'漂白琥珀金——过曝高光，深橙色阴影，变形镜头呼吸感', cold:'芬奇灰绿——消除所有暖色，阴影推向深灰绿色，高光提亮至冷白', gritty:'无调色——原始胶片，现场光，真实不完美', dreamlike:'洗白高光——略微提升黑位，去饱和中间调，保留肤色暖意', anime:'高饱和鲜艳——纯色相，不去饱和，硬性手绘光影分离' };
+  return m[g] || '符合情感基调的电影调色';
+}
+function getZHHook(scenes) {
+  const s = [...scenes][0] || 'atmosphere';
+  const m = { fight:'镜头开场已在冲击中——一拳正在落下', chase:'车辆已达最高速——引擎嘶吼，追车快速逼近', confrontation:'两人已面对面——紧张已至临界点', reveal:'镜头已在揭示中——隐藏之物正在显现', atmosphere:'环境细节已在运动中——雨落，烟飘，光线变化', infiltration:'人物已在内部——越过边界，穿行于阴影', explosion:'冲击波已在扩散——碎片在空中，火焰已在吞噬', hero:'英雄已在决定性时刻——行动已经做出承诺', dialogue:'对话已在进行——改变一切的那句话正在被说出' };
+  return m[s] || '场景已在进行中';
+}
+function getZHShotCamera(shot, phase) {
+  const c = {
+    multi: { hook:'混乱手持中景', mid:'硬切至低角度特写，稳定跟拍', end:'切至极远景，锁定静止' },
+    continuous: { hook:'从身后缓慢推镜，摄影机跟随', mid:'摄影机锁入侧面跟拍', end:'缓慢摇臂上升揭示完整环境' },
+    pov: { hook:'第一人称视角，超广角鱼眼，眼平', mid:'视角持续，身体部位进入画面底部', end:'视角保持，静止锁定最终画面' },
+    frozen: { hook:'实时中景开场', mid:'变速过渡至极度慢动作', end:'变速回实时，静止定格' },
+    aerial: { hook:'航拍无人机高空锁定', mid:'缓慢下降推向下方主体', end:'地面抵达，低角度静止' },
+    handheld: { hook:'手持激烈抖动，中特写', mid:'手持混乱，甩镜至新角度', end:'突然静止锁定——混乱后的静默' },
+    static: { hook:'锁定广角，零运动，两人可见', mid:'锁定中景，摄影机不作反应', end:'锁定极特写，保持' },
+    tracking: { hook:'低角度跟拍，地面高度，主体主导画面', mid:'侧面跟拍，速度保持', end:'跟拍停止，缓慢拉镜至广角' }
+  };
+  return (c[shot] || c['multi'])[phase];
+}
+function getZHSFX(scenes, phase) {
+  const s = [...scenes][0] || 'atmosphere';
+  const m = {
+    fight: { hook:'冲击声，人群倒吸冷气', mid:'骨骼撞击，痛苦呼气，布料撕裂', end:'寂静，地板上单滴水声' },
+    chase: { hook:'引擎嘶吼，轮胎磨地', mid:'金属刮擦，喇叭声，碰撞', end:'引擎声渐远，寂静' },
+    confrontation: { hook:'门砰，脚步停止', mid:'声音紧张，椅子刮擦', end:'寂静。时钟滴答。' },
+    reveal: { hook:'门吱呀，憋气', mid:'环境音涌起，风声', end:'揭示后的寂静' },
+    atmosphere: { hook:'雨打表面，远处车声', mid:'风声，结构吱呀', end:'单一声音，然后寂静' },
+    infiltration: { hook:'轻柔脚步，控制呼吸', mid:'锁扣咔哒，铰链低语', end:'心跳，寂静' },
+    explosion: { hook:'隆隆声积聚，玻璃颤动', mid:'爆炸，冲击波，碎片雨', end:'耳鸣般的寂静，火焰' },
+    hero: { hook:'音乐涌起，风声', mid:'冲击，人群反应', end:'寂静，单音' },
+    dialogue: { hook:'房间底噪，椅子移动', mid:'声音，停顿，呼吸', end:'长时间寂静。门。' }
+  };
+  return (m[s] || m['atmosphere'])[phase];
+}
+function getZHMusic(g) {
+  const m = { action:'无音乐——让冲击声承载', thriller:'无音乐', drama:'无音乐', horror:'无音乐', scifi:'音乐：低频次声嗡鸣，积聚中', romance:'音乐：稀疏钢琴，单音', western:'无音乐', anime:'音乐：管弦乐涌起，铜管' };
+  return m[g] || '无音乐';
+}
+function getZHMeaningShift(g, s) {
+  const m = { action:'胜利者停下来。看着自己的双手。胜利付出了某种无名的代价', thriller:'揭示：威胁已经在内部。锁定镜头保持在那一刻的认知上', drama:'未说出的话终于说出——或终于没有说出。寂静回答', scifi:'机器与人类分享同一表情。静止保持', horror:'它不攻击。它只是看着。眼睛闭着。然后睁开', romance:'他们没有触碰。那个差点触碰的瞬间就是一切。摄影机保持', western:'没有人赢。两人仍然站立。烟灰落下', anime:'武器入鞘并插入大地。战士离去' };
+  return m[g] || '最后一拍重新框定了之前的一切。静止保持。';
+}
+
+function clearAll() {
+  document.getElementById('b-chars').value = '';
+  document.getElementById('b-action').value = '';
+  document.getElementById('out-en').innerHTML = '<span class="placeholder">Prompt bahasa Inggris akan muncul di sini...</span>';
+  document.getElementById('out-zh').innerHTML = '<span class="placeholder">版本中文将显示在这里...</span>';
+  document.getElementById('dn').style.display = 'none';
+  genEN = ''; genZH = '';
+}
+
+function copyText(lang) {
+  const text = lang === 'en' ? genEN : genZH;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector(lang === 'en' ? '.copy-btn:first-of-type' : '.copy-btn:last-of-type');
+    if (btn) { const orig = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = orig, 1500); }
+  });
+}
+
+const EXAMPLES = [
+  { genre:'Action / Combat', title:'Underground Fight Club', shot:'Multi-Shot', tags:['handheld','impact','smart-cuts'],
+    prompt:`VISUAL STYLE: Hyperrealistic underground fight footage, 16mm grain push, desaturated bone-white flesh tones, deep shadow crush, harsh sodium vapor overheads.
+
+CHARACTERS: Fighter A — compact build, shaved head, taped knuckles, blood-stained grey vest. Fighter B — taller, shaggy dark hair, mouth guard, green shorts.
+
+ENVIRONMENT: Basement concrete ring, chain-link fence, crowd pressed against wire, single cage light swinging, cigarette smoke at knee height, wet concrete.
+
+EMOTIONAL TARGET: Attrition. The body failing before the will does.
+
+TIMELINE:
+00:00.0–00:01.5: HOOK — IMPACT ALREADY LANDING
+Fighter A's elbow connects with temple. Handheld with aggressive camera shake, medium close-up. Fighter B staggers, hits chain-link.
+SFX: Bone impact, chain rattle, crowd roar. No Music.
+
+00:01.5–00:07.0: REVERSAL
+Low-angle static — Fighter B charges. Side-profile tracking: tackle drives A into fence post, metal buckling.
+SFX: Metal impact, guttural exhale.
+
+00:07.0–00:10.0: MEANING-SHIFT
+ECU — Fighter A stops. Looks at own hands. Blood — not his opponent's. Locked-off holds.
+SFX: Silence. Single drip on concrete.`},
+  { genre:'Sci-Fi / Cyberpunk', title:'Neon Rain Chase', shot:'Continuous Oner', tags:['continuous','neon','rain'],
+    prompt:`VISUAL STYLE: Blade Runner wet-street photography, f1.4 anamorphic lens flare, rain-on-glass bokeh, neon spectral bleed.
+
+CHARACTERS: Runner — synthetic-looking figure, black tactical gear, reflective visor. Drones — three identical security units, matte black, blue scanning beams.
+
+ENVIRONMENT: Rain-soaked Shibuya-style street at 2am, six stories of neon signage reflected in every surface, steam venting from grates.
+
+EMOTIONAL TARGET: Paranoia turned into pure kinetic survival.
+
+CONTINUOUS ONER — NO CUTS:
+Slow dolly push from behind Runner at street level. Camera locks into low-angle side-profile tracking. Drones enter frame in tight triangle formation. Runner whip-turns into service alley — camera swings with them on slow orbit, revealing dead end. Runner runs at wall, uses crates as launch — goes over. Camera cranes up the wall. Drones arrive at base, scanning beams crossing. Empty.
+
+SFX: Rain constant, drone hum rising, wet boots on concrete, crate impact, silence after.`},
+  { genre:'Thriller / Crime', title:'The Interrogation', shot:'Locked-Off Static', tags:['static','dialogue','power'],
+    prompt:`VISUAL STYLE: Digital crime thriller, David Fincher color science — desaturated mid-tones, cold institutional grey-green, LED overhead strips.
+
+CHARACTERS: Detective Voss — immaculate white shirt, tie loosened, forearms on table, completely still. Suspect — cuffed to table ring, hoodie, eyes down.
+
+ENVIRONMENT: Police interrogation room, grey concrete walls, two-way mirror, single table, clock showing 3:17am.
+
+TIMELINE:
+00:00.0–00:02.5: LOCKED-OFF WIDE
+Both figures. Static camera, dead center. Clock visible at 3:17am. Complete silence.
+SFX: Clock ticking. HVAC hum. No Music.
+
+00:02.5–00:07.0: SLOW DOLLY IN
+Camera inches toward Voss. He places one index finger on the table — a single tap. Suspect's hands contract.
+SFX: Finger tap on metal.
+
+00:07.0–00:10.0: MEANING-SHIFT
+ECU Voss's hand slides a photograph face-down across the table. Static. Doesn't flip it. Waits.
+SFX: Photo sliding on metal. Silence.`},
+  { genre:'Western / Neo-Noir', title:'High Noon Standoff', shot:'Multi-Shot', tags:['western','duel','speed-ramp'],
+    prompt:`VISUAL STYLE: Sergio Leone extreme — anamorphic 2.39:1, bone-dry heat shimmer, extreme telephoto compression, ECU eyes and hands alternating.
+
+CHARACTERS: The Sheriff — weathered face, sweat-dark hat, badge catching noon sun, right hand loose at side. The Stranger — dusty long coat, hand-rolled cigarette.
+
+ENVIRONMENT: Unpaved main street, noon sun directly overhead, storefronts empty, tumbleweed, loose shutter banging in wind.
+
+TIMELINE:
+00:00.0–00:02.0: TELEPHOTO COMPRESSION
+Extreme wide: both figures impossibly small, heat shimmer between them. Locked-off. Shutter banging.
+SFX: Wind. Shutter bang. Distant crow.
+
+00:02.0–00:07.0: ECU ALTERNATING
+ECU Sheriff's eyes under brim. Hard cut. ECU Stranger's hand near holster. Hard cut. ECU badge in sun. Hard cut. ECU cigarette burning down, ash ready to fall.
+SFX: Wind between cuts. Silence.
+
+00:07.0–00:10.0: MEANING-SHIFT
+ECU — cigarette ash falls in slow-motion. Both still standing. Neither down yet.
+SFX: Ash landing. Nothing else.`},
+  { genre:'Drama', title:'The Goodbye', shot:'Continuous Oner', tags:['oner','drama','silence'],
+    prompt:`VISUAL STYLE: Arthouse drama, 85mm telephoto, natural window light only, handheld subtle, muted warm tones. Dardenne Brothers visual language.
+
+CHARACTERS: A — at kitchen sink, back to room, hands in water. B — in doorway with duffel bag, half in half out.
+
+ENVIRONMENT: Small apartment kitchen, late afternoon golden light from window above sink, one mug on table, coat hook by door with B's jacket still on it.
+
+CONTINUOUS ONER — Handheld subtle, 85mm:
+Camera finds A at sink. B in doorway — bag drops. Neither speaks. A's hands stop in water. B looks at coat hook — their jacket still there from yesterday. Camera slowly inches toward A's back. B crosses kitchen — stops behind A. One hand on A's shoulder. A's eyes close. B removes the hand. Footsteps. Door opens. Outside world enters for one second. Door closes. Water still running.
+
+SFX: Water running continuous. Floor creak. Coat hook rattle. Door close. One second street sound. Water. Nothing.`},
+  { genre:'Horror', title:'The Long Hallway', shot:'Frozen in Time', tags:['horror','frozen','dread'],
+    prompt:`VISUAL STYLE: Supernatural horror, Kubrick symmetry, very slow dolly, sterile fluorescent light, total silence broken by single sounds. 24mm wide lens — everything in focus simultaneously.
+
+CHARACTERS: Figure at far end of hallway — completely still, facing toward camera. Distance: 80 meters.
+
+ENVIRONMENT: Hospital corridor at night, fluorescent strips overhead, some flickering, linoleum floor, room doors all closed, figure at exact vanishing point.
+
+TIMELINE:
+00:00.0–00:04.0: THE LONG LOOK
+Locked-off wide. Figure visible in distance, motionless. Fluorescent flickers once. Figure doesn't move.
+SFX: Fluorescent hum. One distant door creak.
+
+00:04.0–00:07.0: DOLLY TOWARD
+Very slow dolly toward figure. Space between camera and figure seems not to decrease — corridor stretches.
+SFX: Fluorescent hum changing pitch.
+
+00:07.0–00:10.0: MEANING-SHIFT — SNAP
+Speed ramp back to real-time: figure now 2 meters away. Camera never saw it move. Figure's face visible for first time — eyes closed.
+SFX: Silence. One fluorescent ping.`},
+  { genre:'POV / Action', title:'Night Jump POV', shot:'POV First Person', tags:['pov','fear','aerial'],
+    prompt:`VISUAL STYLE: GoPro helmet cam, ultra-wide fisheye lens distortion, real-time, motion blur at edges, authentic light flare from city below, no grade — raw footage.
+
+ENVIRONMENT: Rooftop edge of 40-story building at night, city below a carpet of orange and white light, wind audible, rain starting, ledge is 18 inches wide.
+
+POV CONTINUOUS — SINGLE TAKE, NO CUTS:
+Camera (eye-level, first person) looks down — straight down, 40 floors, cars like moving dots. Hands appear at bottom of frame gripping ledge lip — gloves, knuckle-white grip. Wind hits camera physically, lens wobbles. Hands release ledge. Half-second of absolute stillness. Then free fall. Building face rushing upward, lit windows streaking. At 3 seconds: speed ramp — city lights below stretch into vertical streaks. Snap to real-time as parachute deploys — fabric explodes into frame, fall arrests violently, city below swings wildly as orientation stabilizes.
+
+SFX: Wind continuous, grip sound, half-second silence, rush of fall, parachute crack, wind shift to float. No Music.`},
+  { genre:'Anime / Fantasy', title:'The Last Stand', shot:'Multi-Shot', tags:['anime','fantasy','meaning-shift'],
+    prompt:`Grand cinematic fantasy-anime style, sweeping painterly sky in deep crimson and violet, ink-line character edges, emotionally charged heroic staging.
+
+The warrior stands already mid-battle — last enemy thrown back — cape shredded, glowing sword arm trembling, ground littered with fallen opponents. Camera opens on wide low-angle: warrior silhouetted against collapsing fortress wall, debris in slow-motion, single red dusk beam cutting through dust.
+
+Hard cut to ECU: one eye beneath torn cloth wrapping, tears or sweat indistinguishable. Warrior raises sword. Slow orbit as blade begins to glow — cyan light bleeding from steel, wind pulling cape in dramatic billowing motion.
+
+Hard cut to extreme wide aerial: fortress collapsing behind as warrior walks away. Meaning-shift — sword is sheathed. Warrior kneels. Places sword in earth. Stands. Walks into red light. Sword remains.
+
+SFX: Battle ambient fading, sword hum, wind, fabric, collapse debris, silence at end. No Music.`}
+];
+
+function renderExamples() {
+  document.getElementById('eg-grid').innerHTML = EXAMPLES.map((e,i) => `
+    <div class="eg-card">
+      <div class="eg-head">
+        <div class="eg-genre">${e.genre}</div>
+        <div class="eg-title">${e.title}</div>
+      </div>
+      <div class="eg-body">${e.prompt}</div>
+      <div class="eg-foot">
+        ${e.tags.map(t=>`<span class="tag tag-blue">${t}</span>`).join('')}
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:9px;padding:4px 10px" onclick="copyExample(${i})">Copy →</button>
+      </div>
+    </div>`).join('');
+}
+
+function copyExample(i) {
+  navigator.clipboard.writeText(EXAMPLES[i].prompt);
+}
+
+const SHOT_DATA = [
+  {type:'Camera Movement',name:'Slow Dolly In',desc:'Camera inches toward subject over 3–8 seconds. Mounting tension or dread.',syn:'slow dolly in',emo:'Tension / Dread / Fascination'},
+  {type:'Camera Movement',name:'Fast Dolly In',desc:'Rush toward subject in 0.5–1s. Shock, urgency, sudden realization.',syn:'fast dolly in',emo:'Urgency / Shock'},
+  {type:'Camera Movement',name:'Pull Back / Dolly Out',desc:'Camera retreats, revealing scale or isolation around subject.',syn:'slow dolly out',emo:'Isolation / Loss / Scale'},
+  {type:'Camera Movement',name:'Whip Pan',desc:'Violent fast horizontal pan. Energy shifts, time cuts, fast action follow.',syn:'whip pan',emo:'Urgency / Disorientation'},
+  {type:'Camera Movement',name:'Slow Crane Up',desc:'Camera rises vertically. Best for endings, transcendence, scale reveals.',syn:'slow crane up',emo:'Victory / Transcendence / Scale'},
+  {type:'Camera Movement',name:'Slow Orbit',desc:'Camera circles subject in 180–360° arc. Power reveals, product moments.',syn:'slow orbit left',emo:'Awe / Power / Revelation'},
+  {type:'Camera Type',name:'Handheld — Subtle',desc:'Light organic sway, no stabilization. Documentary intimacy.',syn:'handheld, subtle',emo:'Intimacy / Truth / Vulnerability'},
+  {type:'Camera Type',name:'Handheld — Aggressive',desc:'Fight impact, chaos, panic. Camera traumatized by the event.',syn:'handheld with aggressive camera shake',emo:'Danger / Chaos / Fear'},
+  {type:'Camera Type',name:'Locked Off / Static',desc:'Zero camera movement. Most powerful choice in dramatic moments.',syn:'static camera',emo:'Authority / Dread / Indifference'},
+  {type:'Camera Type',name:'Low-Angle Tracking',desc:'Camera at knee level, following action. Makes subjects powerful, threatening.',syn:'low-angle tracking shot',emo:'Power / Threat / Dominance'},
+  {type:'Camera Type',name:'Side-Profile Tracking',desc:'Camera tracks parallel to subject. Classic action/chase side view.',syn:'side-profile tracking shot',emo:'Speed / Momentum / Athleticism'},
+  {type:'Time',name:'Freeze Frame',desc:'Action stops completely mid-motion. Single dramatic beat held.',syn:'freeze frame',emo:'Significance / Shock'},
+  {type:'Time',name:'Speed Ramp',desc:'Transitions between real-time and slow-motion within one shot.',syn:'speed ramping: real-time → slow-motion → real-time',emo:'Impact / Signature Moments'},
+  {type:'Time',name:'Extreme Slow Motion',desc:'10–15% speed. Every physical detail visible — water drops, debris.',syn:'extreme slow-motion (approx. 240fps rendered at 24fps)',emo:'Consequence / Beauty / Violence'},
+  {type:'Shot Scale',name:'Extreme Wide / Establishing',desc:'Subject tiny in environment. Scale, isolation, world context.',syn:'extreme wide establishing shot',emo:'Scale / Loneliness / Context'},
+  {type:'Shot Scale',name:'Extreme Close-Up (ECU)',desc:'Single feature — eye, mouth, hand. Psychological weight.',syn:'extreme close-up',emo:'Intensity / Meaning / Truth'},
+  {type:'Shot Scale',name:'OTS (Over the Shoulder)',desc:'Camera behind one character looking at another. Power relationships.',syn:'over-the-shoulder of [CHARACTER]',emo:'Perspective / Power / Intimacy'},
+  {type:'POV',name:'First Person POV',desc:'Camera = character\'s eyes. Maximum immersion. Best with physical motion.',syn:'first-person POV, eye-level, ultra-wide fisheye lens',emo:'Immersion / Fear / Exhilaration'},
+  {type:'POV',name:'Dutch Angle',desc:'Camera tilted 15–30°. World is wrong, reality unstable. Villain POV.',syn:'dutch angle, camera tilted 25°',emo:'Wrongness / Madness / Threat'},
+  {type:'Transition',name:'Smash Cut / Hard Cut',desc:'Instantaneous cut. Maximum contrast between shots.',syn:'hard cut to',emo:'Shock / Urgency / Contrast'},
+  {type:'Transition',name:'Match Cut',desc:'Cut on matching shape or motion between two scenes. Connects ideas.',syn:'match cut from [A] to [B] on matching motion',emo:'Connection / Elegance / Theme'},
+  {type:'Aerial',name:'Aerial Drone Push',desc:'Camera descends from height toward subject. Environment first, then character.',syn:'aerial drone shot, slow descent from 200 feet, pushing toward [SUBJECT]',emo:'Scale / Context / God-View'}
+];
+
+function renderShots() {
+  document.getElementById('shot-grid').innerHTML = SHOT_DATA.map(s=>`
+    <div class="shot-card">
+      <div class="shot-type">${s.type}</div>
+      <div class="shot-name">${s.name}</div>
+      <div class="shot-desc">${s.desc}</div>
+      <div class="shot-syn">${s.syn}</div>
+      <div class="shot-emo">Emotion: ${s.emo}</div>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>
