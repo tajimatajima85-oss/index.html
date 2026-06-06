@@ -618,6 +618,14 @@
             </div>
           </div>
 
+          <div style="background:rgba(232,196,106,0.06);border:1px solid rgba(232,196,106,0.2);border-radius:4px;padding:14px 16px;">
+            <div class="field-label" style="color:var(--accent);margin-bottom:6px">🔑 Anthropic API Key</div>
+            <input type="password" id="api-key" placeholder="sk-ant-api03-..." style="font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.5px;" />
+            <div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.5;">
+              Dapatkan API key di <strong style="color:var(--accent3)">console.anthropic.com</strong> → API Keys. Key hanya tersimpan di browser kamu, tidak dikirim ke mana pun selain Anthropic.
+            </div>
+          </div>
+
           <div>
             <div class="field-label">Movie Genre</div>
             <select id="b-genre">
@@ -1220,13 +1228,25 @@ ${scene}
 
 Generate the complete prompt now. Start immediately with VISUAL STYLE: — no preamble.`;
 
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) {
+    document.getElementById('output-en').innerHTML = '<span style="color:var(--accent2)">⚠️ Masukkan API key Anthropic dulu di bagian atas.</span>';
+    btn.disabled = false;
+    document.getElementById('gen-status').classList.remove('active');
+    return;
+  }
+
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/anthropic', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 1500,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }]
       })
